@@ -1,12 +1,14 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { loadTasks, newId, saveTasks } from "./tasks.js";
 
 const app = express();
 
 // Change these if you move things.
 const WORKSPACE_DIR = process.env.HARO_WORKSPACE_DIR || "/home/ray/.openclaw/workspace";
 const WORKLOG_PATH = process.env.HARO_WORKLOG_PATH || path.join(WORKSPACE_DIR, ".openclaw", "worklog.jsonl");
+const TASKS_PATH = process.env.HARO_TASKS_PATH || path.join(WORKSPACE_DIR, ".openclaw", "tasks.json");
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
@@ -31,42 +33,85 @@ app.get("/api/worklog", (req, res) => {
   res.json({ workspaceDir: WORKSPACE_DIR, worklogPath: WORKLOG_PATH, count: items.length, items });
 });
 
+app.get("/api/tasks", (req, res) => {
+  const tasks = loadTasks(TASKS_PATH);
+  res.json({ tasksPath: TASKS_PATH, ...tasks });
+});
+
+app.post("/api/tasks", express.json(), (req, res) => {
+  const { title, details = "", project = "", columnId = "backlog", priority = 2 } = req.body || {};
+  if (!title || typeof title !== "string") {
+    return res.status(400).json({ ok: false, error: "title required" });
+  }
+  const tasks = loadTasks(TASKS_PATH);
+  const card = {
+    id: newId("card"),
+    title,
+    details,
+    project,
+    columnId,
+    priority,
+    createdAt: new Date().toISOString(),
+  };
+  tasks.cards = tasks.cards || [];
+  tasks.cards.push(card);
+  const saved = saveTasks(TASKS_PATH, tasks);
+  res.json({ ok: true, card, updatedAt: saved.updatedAt });
+});
+
+app.post("/api/tasks/:id/move", express.json(), (req, res) => {
+  const { id } = req.params;
+  const { columnId } = req.body || {};
+  const tasks = loadTasks(TASKS_PATH);
+  const cards = tasks.cards || [];
+  const card = cards.find((c) => c.id === id);
+  if (!card) return res.status(404).json({ ok: false, error: "not found" });
+  card.columnId = columnId;
+  const saved = saveTasks(TASKS_PATH, tasks);
+  res.json({ ok: true, card, updatedAt: saved.updatedAt });
+});
+
+app.use("/public", express.static(path.join(process.cwd(), "public")));
+
 app.get("/", (req, res) => {
   res.type("html").send(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Haro Dashboard</title>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 960px; }
-    .muted { color: #666; }
-    pre { background: #0b1020; color: #d7e0ff; padding: 12px; border-radius: 8px; overflow:auto; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; margin: 12px 0; }
-  </style>
+  <title>Haro Mission Control</title>
+  <link rel="stylesheet" href="/public/styles.css" />
 </head>
 <body>
-  <h1>Haro Dashboard</h1>
-  <p class="muted">MVP: reads <code>.openclaw/worklog.jsonl</code> from your Haro workspace and renders it.</p>
+  <header>
+    <h1>Haro Mission Control</h1>
+    <div class="muted small">Kanban (tasks.json) + Activity feed (worklog.jsonl)</div>
+  </header>
+  <main>
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <div style="font-weight:700">Tasks</div>
+            <div id="tasks-meta" class="muted small"></div>
+          </div>
+          <button id="add-task">+ Add</button>
+        </div>
+        <div id="kanban"></div>
+      </section>
 
-  <div class="card">
-    <h2>Worklog (latest)</h2>
-    <div id="meta" class="muted"></div>
-    <pre id="out">Loading…</pre>
-  </div>
-
-  <script>
-    async function main() {
-      const r = await fetch('/api/worklog');
-      const j = await r.json();
-      document.getElementById('meta').textContent = 'items: ' + j.count + ' | source: ' + j.worklogPath;
-      const items = (j.items || []).slice(-50).reverse();
-      document.getElementById('out').textContent = items.map(x => JSON.stringify(x, null, 2)).join('\n\n');
-    }
-    main().catch(err => {
-      document.getElementById('out').textContent = String(err);
-    });
-  </script>
+      <aside class="panel">
+        <div class="panel-head">
+          <div>
+            <div style="font-weight:700">Activity</div>
+            <div id="worklog-meta" class="muted small"></div>
+          </div>
+        </div>
+        <div id="worklog"></div>
+      </aside>
+    </div>
+  </main>
+  <script src="/public/app.js"></script>
 </body>
 </html>`);
 });

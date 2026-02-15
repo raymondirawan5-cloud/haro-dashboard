@@ -1,0 +1,39 @@
+body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; }
+header { padding: 16px 20px; border-bottom: 1px solid #e6e6e6; position: sticky; top: 0; background: #fff; }
+main { padding: 16px 20px; }
+
+h1 { font-size: 18px; margin: 0; }
+.muted { color: #666; }
+.small { font-size: 12px; }
+
+.grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+
+.panel { border: 1px solid #ddd; border-radius: 12px; padding: 12px; background: #fff; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+
+button { border: 1px solid #ccc; background: #fafafa; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+button:hover { background: #f2f2f2; }
+
+.board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 900px) { .board { grid-template-columns: repeat(2, 1fr); } }
+
+.col { border: 1px solid #e6e6e6; border-radius: 12px; overflow: hidden; background: #fbfbfb; }
+.col-head { padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; font-weight: 600; }
+.col-body { min-height: 140px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.col-body.dragover { outline: 2px dashed #999; outline-offset: -6px; }
+
+.card { background: #fff; border: 1px solid #e7e7e7; border-radius: 10px; padding: 10px; }
+.card-title { font-weight: 600; margin-bottom: 4px; }
+
+#worklog { display: flex; flex-direction: column; gap: 8px; }
+.log-item { border: 1px solid #eee; border-radius: 10px; padding: 10px; background: #fff; }
+.log-row { display: flex; justify-content: space-between; gap: 8px; }
+.log-left { display: flex; gap: 8px; align-items: center; }
+.log-title { font-weight: 600; }
+.log-details { margin-top: 6px; color: #333; white-space: pre-wrap; }
+
+.badge { font-size: 11px; border-radius: 999px; padding: 2px 8px; border: 1px solid #ddd; background: #f7f7f7; }
+.badge-note { background: #eef6ff; border-color: #cfe6ff; }
+.badge-pr { background: #f3f7ee; border-color: #d7e8c6; }
+.badge-err { background: #fff0f0; border-color: #ffd0d0; }
