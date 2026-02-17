@@ -7,6 +7,13 @@ export const TASKS_PATH =
 
 const WORKSPACE_KEY_DOCS = ["AGENTS.md", "SOUL.md", "USER.md", "TOOLS.md", "HEARTBEAT.md"];
 
+const DEFAULT_COLUMNS = [
+  { id: "backlog", title: "Backlog" },
+  { id: "doing", title: "Doing" },
+  { id: "waiting", title: "Waiting" },
+  { id: "done", title: "Done" },
+];
+
 export type DocItem = {
   id: string;
   title: string;
@@ -22,6 +29,23 @@ export type MemoryItem = {
   preview: string;
 };
 
+type TaskColumn = { id: string; title: string; [key: string]: unknown };
+export type TaskCard = {
+  id: string;
+  title: string;
+  columnId: string;
+  details?: string;
+  dueDate?: string;
+  [key: string]: unknown;
+};
+
+type TasksFile = {
+  columns: TaskColumn[];
+  cards: TaskCard[];
+  updatedAt: string | null;
+  [key: string]: unknown;
+};
+
 function safeRead(filePath: string): string | null {
   try {
     if (!fs.existsSync(filePath)) return null;
@@ -35,6 +59,47 @@ function safeRead(filePath: string): string | null {
 
 function preview(text: string, max = 280): string {
   return text.replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function defaultTasksFile(): TasksFile {
+  return {
+    columns: DEFAULT_COLUMNS,
+    cards: [],
+    updatedAt: null,
+  };
+}
+
+function ensureTasksDir() {
+  fs.mkdirSync(path.dirname(TASKS_PATH), { recursive: true });
+}
+
+function loadTasksFile(): TasksFile {
+  const raw = safeRead(TASKS_PATH);
+  if (!raw) return defaultTasksFile();
+
+  try {
+    const parsed = JSON.parse(raw);
+    const columns = Array.isArray(parsed.columns) ? parsed.columns : DEFAULT_COLUMNS;
+    const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+    return {
+      ...parsed,
+      columns,
+      cards,
+      updatedAt: parsed.updatedAt ?? null,
+    };
+  } catch {
+    return defaultTasksFile();
+  }
+}
+
+function saveTasksFile(data: TasksFile): TasksFile {
+  const next = {
+    ...data,
+    updatedAt: new Date().toISOString(),
+  };
+  ensureTasksDir();
+  fs.writeFileSync(TASKS_PATH, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+  return next;
 }
 
 export function listMemories(): MemoryItem[] {
@@ -111,28 +176,71 @@ export function listDocuments(repoDir: string): DocItem[] {
 }
 
 export function readTasksRaw() {
-  const raw = safeRead(TASKS_PATH);
-  if (!raw) {
-    return {
-      columns: [
-        { id: "backlog", title: "Backlog" },
-        { id: "doing", title: "Doing" },
-        { id: "waiting", title: "Waiting" },
-        { id: "done", title: "Done" },
-      ],
-      cards: [],
-      updatedAt: null,
-    };
+  const parsed = loadTasksFile();
+  return {
+    columns: parsed.columns,
+    cards: parsed.cards,
+    updatedAt: parsed.updatedAt ?? null,
+  };
+}
+
+export function createTask(input: { title: string; details?: string; status?: string }) {
+  const parsed = loadTasksFile();
+  const columns = parsed.columns?.length ? parsed.columns : DEFAULT_COLUMNS;
+  const defaultColumnId = columns[0]?.id || "backlog";
+  const requestedStatus = (input.status || "").trim();
+  const columnId = columns.some((c) => c.id === requestedStatus) ? requestedStatus : defaultColumnId;
+
+  const card: TaskCard = {
+    id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: input.title.trim(),
+    columnId,
+  };
+
+  if (input.details?.trim()) card.details = input.details.trim();
+
+  parsed.cards = [...parsed.cards, card];
+  const saved = saveTasksFile(parsed);
+  return { card, data: { columns: saved.columns, cards: saved.cards, updatedAt: saved.updatedAt } };
+}
+
+export function updateTask(input: {
+  id: string;
+  title?: string;
+  status?: string;
+  dueDate?: string | null;
+}) {
+  const parsed = loadTasksFile();
+  const columns = parsed.columns?.length ? parsed.columns : DEFAULT_COLUMNS;
+
+  const idx = parsed.cards.findIndex((c) => c?.id === input.id);
+  if (idx < 0) return null;
+
+  const current = parsed.cards[idx];
+  const next: TaskCard = { ...current };
+
+  if (typeof input.title === "string" && input.title.trim()) {
+    next.title = input.title.trim();
   }
 
-  try {
-    const parsed = JSON.parse(raw);
-    return {
-      columns: Array.isArray(parsed.columns) ? parsed.columns : [],
-      cards: Array.isArray(parsed.cards) ? parsed.cards : [],
-      updatedAt: parsed.updatedAt ?? null,
-    };
-  } catch {
-    return { columns: [], cards: [], updatedAt: null };
+  if (typeof input.status === "string" && columns.some((c) => c.id === input.status)) {
+    next.columnId = input.status;
   }
+
+  if (input.dueDate === null) {
+    delete next.dueDate;
+  } else if (typeof input.dueDate === "string") {
+    const trimmed = input.dueDate.trim();
+    if (!trimmed) delete next.dueDate;
+    else next.dueDate = trimmed;
+  }
+
+  parsed.cards = [
+    ...parsed.cards.slice(0, idx),
+    next,
+    ...parsed.cards.slice(idx + 1),
+  ];
+
+  const saved = saveTasksFile(parsed);
+  return { card: next, data: { columns: saved.columns, cards: saved.cards, updatedAt: saved.updatedAt } };
 }
