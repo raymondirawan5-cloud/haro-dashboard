@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 
-const rawBasePath = process.env.HARO_BASE_PATH || "";
-const basePath = rawBasePath && rawBasePath !== "/"
-  ? rawBasePath.replace(/\/$/, "")
+const rawAssetPrefix = process.env.HARO_ASSET_PREFIX || "";
+const assetPrefix = rawAssetPrefix && rawAssetPrefix !== "/"
+  ? rawAssetPrefix.replace(/\/$/, "")
   : "";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  basePath,
+  assetPrefix,
 };
 
 export default nextConfig;
