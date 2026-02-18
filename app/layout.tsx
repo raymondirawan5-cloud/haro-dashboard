@@ -20,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="nav">
             <Link href={withPrefix("/dashboard")}>Dashboard</Link>
             <Link href={withPrefix("/mission-control/decisions")}>Decisions</Link>
+            <Link href={withPrefix("/mission-control/today")}>Today</Link>
             <Link href={withPrefix("/second-brain/memories")}>Memories</Link>
             <Link href={withPrefix("/second-brain/documents")}>Documents</Link>
             <Link href={withPrefix("/second-brain/tasks")}>Tasks</Link>
