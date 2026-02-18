@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
           <nav className="nav">
             <Link href="/dashboard">Dashboard</Link>
+            <Link href="/mission-control/decisions">Decisions</Link>
             <Link href="/second-brain/memories">Memories</Link>
             <Link href="/second-brain/documents">Documents</Link>
             <Link href="/second-brain/tasks">Tasks</Link>
