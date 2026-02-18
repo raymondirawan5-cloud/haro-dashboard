@@ -1,4 +1,12 @@
 export function getPathPrefix(): string {
+  // Runtime detection for client-side navigation behind Tailscale path proxy.
+  if (typeof window !== "undefined") {
+    const p = window.location.pathname || "";
+    if (p === "/haro" || p.startsWith("/haro/")) return "/haro";
+    return "";
+  }
+
+  // Server-side fallback (build/runtime env)
   const raw = process.env.HARO_ASSET_PREFIX || "";
   if (!raw || raw === "/") return "";
   return raw.replace(/\/$/, "");
