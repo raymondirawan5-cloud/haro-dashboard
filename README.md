@@ -52,13 +52,21 @@ This is retained during migration to avoid breaking existing workflows.
 - `HARO_WORKSPACE_DIR` (default: `/home/ray/.openclaw/workspace`)
 - `HARO_TASKS_PATH` (default: `$HARO_WORKSPACE_DIR/.openclaw/tasks.json`)
 
-## systemd migration notes (PR-first, no live deploy)
+## Branch & deploy policy
 
-1. Keep existing service on legacy command until PR is merged and validated.
-2. In staging/systemd override, switch ExecStart from legacy server to Next:
-   - old: `node /path/to/server.js`
-   - new: `npm run start -- --hostname 127.0.0.1 --port 8787`
-3. Ensure build step is run before restart: `npm run build`.
-4. Rollback plan: revert ExecStart to legacy command.
+- **Stable branch for live deploys:** `main` when available, otherwise `stable`.
+- Feature work should happen in `feat/*` branches and be merged into the stable branch via PR.
+- No force-push or history rewrites on the stable branch.
+- Deploy only via `scripts/deploy-dashboard.sh` so build + restart + health checks stay consistent.
 
-Do **not** apply live changes directly from this branch; use PR review + merge flow.
+One-command deploy:
+
+```bash
+./scripts/deploy-dashboard.sh
+```
+
+Dry run (no write/restart actions):
+
+```bash
+./scripts/deploy-dashboard.sh --dry-run
+```
