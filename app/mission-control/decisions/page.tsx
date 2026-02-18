@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type DecisionStatus = "pending" | "approved" | "rejected";
 
@@ -27,6 +27,7 @@ export default function MissionControlDecisionsPage() {
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({
@@ -54,8 +55,14 @@ export default function MissionControlDecisionsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const pendingCount = useMemo(
+    () => decisions.filter((decision) => decision.status === "pending").length,
+    [decisions],
+  );
+
   function startEdit(decision: DecisionItem) {
     setEditingId(decision.id);
+    setFeedback(null);
     setEditState({
       choice: decision.choice || "",
       status: decision.status || "pending",
@@ -71,6 +78,7 @@ export default function MissionControlDecisionsPage() {
 
   async function saveDecision(id: string) {
     setSavingId(id);
+    setFeedback(null);
     try {
       const response = await fetch("/api/mission-control/decisions", {
         method: "PATCH",
@@ -89,6 +97,7 @@ export default function MissionControlDecisionsPage() {
 
       const data = await response.json();
       setDecisions(data.decisions || []);
+      setFeedback("Decision saved.");
       cancelEdit();
     } catch {
       setError("Save failed. Please retry.");
@@ -99,11 +108,15 @@ export default function MissionControlDecisionsPage() {
 
   return (
     <section>
-      <h2>Mission Control · Decision Sign-off</h2>
+      <div className="decision-header">
+        <h2>Mission Control · Decision Sign-off</h2>
+        <span className="badge status-pending">Pending: {pendingCount}</span>
+      </div>
       <p className="muted">Approve or reject Tracker V1 blocker decisions without editing markdown.</p>
 
       {loading ? <p className="muted">Loading decisions...</p> : null}
       {error ? <p className="muted">{error}</p> : null}
+      {feedback ? <p className="muted">{feedback}</p> : null}
 
       <div className="stack">
         {decisions.map((decision) => {
@@ -112,7 +125,7 @@ export default function MissionControlDecisionsPage() {
             <article key={decision.id} className="panel">
               <div className="decision-header">
                 <h3>{decision.title}</h3>
-                <span className={`badge status-${decision.status}`}>{decision.status}</span>
+                <span className={`badge status-chip status-${decision.status}`}>{decision.status}</span>
               </div>
               <p className="muted small">{decision.blocker}</p>
 

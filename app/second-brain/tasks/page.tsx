@@ -64,6 +64,13 @@ export default function TasksPage() {
     return map;
   }, [columns, filteredCards]);
 
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const col of columns) counts.set(col.id, 0);
+    for (const card of cards) counts.set(card.columnId, (counts.get(card.columnId) || 0) + 1);
+    return counts;
+  }, [cards, columns]);
+
   async function onCreateTask(e: FormEvent) {
     e.preventDefault();
     if (!quickTitle.trim()) return;
@@ -92,11 +99,7 @@ export default function TasksPage() {
 
   function startEdit(card: Card) {
     setEditingId(card.id);
-    setEditState({
-      title: card.title,
-      status: card.columnId,
-      dueDate: card.dueDate || "",
-    });
+    setEditState({ title: card.title, status: card.columnId, dueDate: card.dueDate || "" });
   }
 
   function cancelEdit() {
@@ -131,15 +134,14 @@ export default function TasksPage() {
   return (
     <section>
       <h2>Second Brain · Tasks</h2>
+
       <form onSubmit={onCreateTask} className="panel quick-add-form">
-        <strong>Quick add</strong>
+        <div className="decision-header">
+          <strong>Quick add</strong>
+          <span className="muted small">Total cards: {cards.length}</span>
+        </div>
         <div className="quick-add-grid">
-          <input
-            value={quickTitle}
-            onChange={(e) => setQuickTitle(e.target.value)}
-            placeholder="Task title"
-            required
-          />
+          <input value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} placeholder="Task title" required />
           <select value={quickStatus} onChange={(e) => setQuickStatus(e.target.value)}>
             <option value="">Default status</option>
             {columns.map((col) => (
@@ -155,7 +157,7 @@ export default function TasksPage() {
           placeholder="Optional description"
           rows={2}
         />
-        <div>
+        <div className="inline-actions">
           <button type="submit" disabled={submitting || !quickTitle.trim()}>
             {submitting ? "Adding..." : "Add task"}
           </button>
@@ -163,9 +165,19 @@ export default function TasksPage() {
       </form>
 
       <SearchBox value={query} onChange={setQuery} placeholder="Filter task cards..." />
-      <div className="kanban">
+
+      <div className="task-status-strip">
         {columns.map((col) => (
-          <article key={col.id} className="panel">
+          <div key={col.id} className="panel task-status-pill">
+            <span>{col.title}</span>
+            <strong>{statusCounts.get(col.id) || 0}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="kanban polished" style={{ marginTop: 12 }}>
+        {columns.map((col) => (
+          <article key={col.id} className="panel task-column">
             <h3>
               {col.title} <span className="muted">({(byCol.get(col.id) || []).length})</span>
             </h3>
@@ -173,7 +185,7 @@ export default function TasksPage() {
               {(byCol.get(col.id) || []).map((card) => {
                 const isEditing = editingId === card.id;
                 return (
-                  <div key={card.id} className="card">
+                  <div key={card.id} className="card task-card">
                     {isEditing ? (
                       <div className="stack compact">
                         <input
@@ -212,12 +224,14 @@ export default function TasksPage() {
                     ) : (
                       <>
                         <strong>{card.title}</strong>
-                        <p className="muted small">{card.project || "no-project"}</p>
-                        {card.details ? <p>{card.details}</p> : null}
-                        {card.dueDate ? <p className="muted small">Due: {card.dueDate}</p> : null}
+                        {card.details ? <p className="muted">{card.details}</p> : null}
+                        <div className="task-card-meta">
+                          <span className="muted small">{card.project || "no-project"}</span>
+                          {card.dueDate ? <span className="muted small">Due: {card.dueDate}</span> : null}
+                        </div>
                         <div className="inline-actions">
                           <button type="button" onClick={() => startEdit(card)} className="ghost-btn">
-                            Edit
+                            Quick edit
                           </button>
                         </div>
                       </>
