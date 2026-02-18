@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/client-api-base";
 import SearchBox from "@/components/SearchBox";
 
 type Column = { id: string; title: string };
@@ -35,7 +36,7 @@ export default function TasksPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/second-brain/tasks")
+    fetch(apiUrl("/api/second-brain/tasks"))
       .then((r) => r.json())
       .then((d) => {
         setColumns(d.columns || []);
@@ -76,7 +77,7 @@ export default function TasksPage() {
     if (!quickTitle.trim()) return;
     setSubmitting(true);
     try {
-      const response = await fetch("/api/second-brain/tasks", {
+      const response = await fetch(apiUrl("/api/second-brain/tasks"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -111,7 +112,7 @@ export default function TasksPage() {
     if (!editState.title.trim()) return;
     setSavingId(cardId);
     try {
-      const response = await fetch("/api/second-brain/tasks", {
+      const response = await fetch(apiUrl("/api/second-brain/tasks"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

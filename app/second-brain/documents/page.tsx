@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/client-api-base";
 import SearchBox from "@/components/SearchBox";
 
 type DocItem = {
@@ -16,7 +17,7 @@ export default function DocumentsPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch("/api/second-brain/documents")
+    fetch(apiUrl("/api/second-brain/documents"))
       .then((r) => r.json())
       .then((d) => setItems(d.items || []))
       .catch(() => setItems([]));

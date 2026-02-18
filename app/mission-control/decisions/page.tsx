@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/client-api-base";
 
 type DecisionStatus = "pending" | "approved" | "rejected";
 
@@ -80,7 +81,7 @@ export default function MissionControlDecisionsPage() {
     setSavingId(id);
     setFeedback(null);
     try {
-      const response = await fetch("/api/mission-control/decisions", {
+      const response = await fetch(apiUrl("/api/mission-control/decisions"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiUrl } from "@/lib/client-api-base";
 
 type Blocker = {
   id: string;
@@ -30,7 +31,7 @@ export default function MissionControlTodayPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/mission-control/today")
+    fetch(apiUrl("/api/mission-control/today"))
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load");
         return res.json();
@@ -75,7 +76,7 @@ export default function MissionControlTodayPage() {
     setSaving(true);
     setFeedback(null);
     try {
-      const response = await fetch("/api/mission-control/today", {
+      const response = await fetch(apiUrl("/api/mission-control/today"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(data),

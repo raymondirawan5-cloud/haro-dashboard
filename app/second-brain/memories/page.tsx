@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/client-api-base";
 import SearchBox from "@/components/SearchBox";
 
 type MemoryItem = { id: string; title: string; path: string; preview: string };
@@ -10,7 +11,7 @@ export default function MemoriesPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch("/api/second-brain/memories")
+    fetch(apiUrl("/api/second-brain/memories"))
       .then((r) => r.json())
       .then((d) => setItems(d.items || []))
       .catch(() => setItems([]));
