@@ -40,7 +40,7 @@ export default function MissionControlDecisionsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/mission-control/decisions?project=${PROJECT}`)
+    fetch(apiUrl(`/api/mission-control/decisions?project=${PROJECT}`))
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load decisions");
         return res.json();
