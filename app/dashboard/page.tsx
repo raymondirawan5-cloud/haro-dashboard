@@ -12,6 +12,8 @@ type Commitment = {
   proof_required: boolean;
   proof_id: string | null;
   created_at: string;
+  last_updated_at?: string;
+  health_status?: "healthy" | "at_risk" | "blocked" | "done_verified" | "done_unverified";
 };
 
 type Task = {
@@ -28,32 +30,65 @@ type Proof = {
   deployments: unknown[];
 };
 
+type HealthSummary = {
+  healthy: number;
+  at_risk: number;
+  blocked: number;
+  done_verified: number;
+  done_unverified: number;
+};
+
+type HealthResponse = {
+  status: "healthy" | "warning" | "critical";
+  summary: HealthSummary;
+  commitments: Commitment[];
+};
+
+const DEFAULT_SUMMARY: HealthSummary = {
+  healthy: 0,
+  at_risk: 0,
+  blocked: 0,
+  done_verified: 0,
+  done_unverified: 0,
+};
+
+function lastActivity(item: Commitment): number {
+  const ts = Date.parse(item.last_updated_at || item.created_at);
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
 export default function DashboardPage() {
   const [date, setDate] = useState("");
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [proof, setProof] = useState<Proof>({ generated_at: "", task_proofs: [], commits: [], deployments: [] });
+  const [healthStatus, setHealthStatus] = useState<HealthResponse["status"]>("healthy");
+  const [healthSummary, setHealthSummary] = useState<HealthSummary>(DEFAULT_SUMMARY);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   async function loadAll() {
-    const [todayRes, tasksRes, proofRes] = await Promise.all([
+    const [todayRes, tasksRes, proofRes, healthRes] = await Promise.all([
       fetch(apiUrl("/api/mission-control/today")),
       fetch(apiUrl("/api/tasks")),
       fetch(apiUrl("/api/proof/latest")),
+      fetch(apiUrl("/api/mission-control/health")),
     ]);
 
-    if (!todayRes.ok || !tasksRes.ok || !proofRes.ok) {
+    if (!todayRes.ok || !tasksRes.ok || !proofRes.ok || !healthRes.ok) {
       throw new Error("failed loading dashboard data");
     }
 
     const todayData = await todayRes.json();
     const tasksData = await tasksRes.json();
     const proofData = await proofRes.json();
+    const healthData = (await healthRes.json()) as HealthResponse;
 
     setDate(typeof todayData.date === "string" ? todayData.date : "");
-    setCommitments(Array.isArray(todayData.commitments) ? todayData.commitments : []);
+    setCommitments(Array.isArray(healthData.commitments) ? healthData.commitments : []);
     setTasks(Array.isArray(tasksData.tasks) ? tasksData.tasks : []);
     setProof(proofData as Proof);
+    setHealthStatus(["healthy", "warning", "critical"].includes(healthData.status) ? healthData.status : "healthy");
+    setHealthSummary(healthData.summary || DEFAULT_SUMMARY);
   }
 
   useEffect(() => {
@@ -61,6 +96,13 @@ export default function DashboardPage() {
   }, []);
 
   const blocked = useMemo(() => commitments.filter((item) => item.status === "blocked"), [commitments]);
+  const atRiskCommitments = useMemo(
+    () =>
+      commitments
+        .filter((item) => item.health_status === "at_risk" || item.health_status === "done_unverified")
+        .sort((a, b) => lastActivity(a) - lastActivity(b)),
+    [commitments],
+  );
   const uncommittedTasks = useMemo(() => {
     const committedTaskIds = new Set(commitments.map((c) => c.task_id));
     return tasks.filter((task) => task.status !== "complete" && !committedTaskIds.has(task.id));
@@ -80,8 +122,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const data = await res.json();
-    setCommitments(Array.isArray(data.commitments) ? data.commitments : commitments);
+    await loadAll();
   }
 
   async function transitionCommitment(id: string, status: Commitment["status"]) {
@@ -98,8 +139,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const data = await res.json();
-    setCommitments(Array.isArray(data.commitments) ? data.commitments : commitments);
+    await loadAll();
   }
 
   async function resetDay() {
@@ -110,9 +150,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const data = await res.json();
-    setDate(typeof data.date === "string" ? data.date : "");
-    setCommitments(Array.isArray(data.commitments) ? data.commitments : []);
+    await loadAll();
   }
 
   return (
@@ -121,6 +159,30 @@ export default function DashboardPage() {
       <p className="muted small">Date: {date || "-"}</p>
       {feedback ? <p className="muted">{feedback}</p> : null}
       <button type="button" onClick={resetDay}>Reset Day</button>
+
+      <article className="panel" style={{ marginTop: 12 }}>
+        <h3>Mission Control Health <span className="badge">{healthStatus.toUpperCase()}</span></h3>
+        <p className="small muted">
+          Healthy: {healthSummary.healthy} · At Risk: {healthSummary.at_risk} · Blocked: {healthSummary.blocked} · Done Verified: {healthSummary.done_verified} · Done Unverified: {healthSummary.done_unverified}
+        </p>
+      </article>
+
+      <article className="panel" style={{ marginTop: 12 }}>
+        <h3>At Risk Commitments</h3>
+        <div className="stack">
+          {atRiskCommitments.map((item) => (
+            <div key={item.id} className="card evidence-card">
+              <div className="decision-header">
+                <strong>{item.title}</strong>
+                <span className="badge">{item.health_status}</span>
+              </div>
+              <p className="small muted">task_id: {item.task_id} · decision_id: {item.decision_id}</p>
+              <p className="small muted">last_activity: {item.last_updated_at || item.created_at}</p>
+            </div>
+          ))}
+          {!atRiskCommitments.length ? <p className="muted small">No at risk commitments.</p> : null}
+        </div>
+      </article>
 
       <article className="panel" style={{ marginTop: 12 }}>
         <h3>Today Commitments</h3>

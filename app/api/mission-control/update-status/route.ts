@@ -36,7 +36,12 @@ export async function PATCH(request: Request) {
         ? getProofReferenceForTask(current.task_id) || current.proof_id
         : current.proof_id;
 
-    const nextCommitment = { ...current, status, proof_id: proofId ?? null };
+    const nextCommitment = {
+      ...current,
+      status,
+      proof_id: proofId ?? null,
+      last_updated_at: new Date().toISOString(),
+    };
     const next = [...today.commitments];
     next[idx] = nextCommitment;
     const saved = writeToday({ ...today, commitments: next });

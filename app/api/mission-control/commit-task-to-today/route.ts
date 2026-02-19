@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       proof_required: true,
       proof_id: null,
       created_at: new Date().toISOString(),
+      last_updated_at: new Date().toISOString(),
     };
 
     const saved = writeToday({ ...today, commitments: [...today.commitments, commitment] });

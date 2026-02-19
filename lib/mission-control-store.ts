@@ -13,6 +13,8 @@ export const MISSION_CONTROL_HISTORY_DIR = path.join(DATA_ROOT, "mission-control
 export type CommitmentStatus = "committed" | "in_progress" | "blocked" | "done";
 export type TaskStatus = "pending" | "active" | "blocked" | "complete";
 
+export type CommitmentHealthStatus = "healthy" | "at_risk" | "blocked" | "done_verified" | "done_unverified";
+
 export type TodayCommitment = {
   id: string;
   title: string;
@@ -22,6 +24,8 @@ export type TodayCommitment = {
   proof_required: boolean;
   proof_id: string | null;
   created_at: string;
+  last_updated_at?: string;
+  health_status?: CommitmentHealthStatus;
 };
 
 export type TodayFile = {
@@ -105,6 +109,7 @@ export function readToday(): TodayFile {
           proof_required: raw.proof_required !== false,
           proof_id: typeof raw.proof_id === "string" ? raw.proof_id : null,
           created_at: typeof raw.created_at === "string" ? raw.created_at : now,
+          ...(typeof raw.last_updated_at === "string" ? { last_updated_at: raw.last_updated_at } : {}),
         };
       })
     : [];
@@ -124,8 +129,15 @@ export function writeToday(data: TodayFile): TodayFile {
     date: data.date || new Date().toISOString().slice(0, 10),
     commitments: Array.isArray(data.commitments)
       ? data.commitments.map((item) => ({
-          ...item,
+          id: item.id,
+          title: item.title,
+          task_id: item.task_id,
+          decision_id: item.decision_id,
+          status: item.status,
+          proof_required: item.proof_required,
+          proof_id: item.proof_id,
           created_at: item.created_at || new Date().toISOString(),
+          ...(item.last_updated_at ? { last_updated_at: item.last_updated_at } : {}),
         }))
       : [],
   };
