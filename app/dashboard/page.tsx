@@ -1,34 +1,154 @@
-import { readDecisionsIndex, readProofLatest, readToday } from "@/lib/mission-control-store";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect, useMemo, useState } from "react";
+import { apiUrl } from "@/lib/client-api-base";
+
+type Commitment = {
+  id: string;
+  title: string;
+  task_id: string;
+  decision_id: string;
+  status: "committed" | "in_progress" | "blocked" | "done";
+  proof_required: boolean;
+  proof_id: string | null;
+  created_at: string;
+};
+
+type Task = {
+  id: string;
+  title: string;
+  status: "pending" | "active" | "blocked" | "complete";
+  decision_id: string;
+};
+
+type Proof = {
+  generated_at: string;
+  task_proofs: Array<{ task_id: string; proof_type: string; reference: string }>;
+  commits: unknown[];
+  deployments: unknown[];
+};
 
 export default function DashboardPage() {
-  const today = readToday();
-  const decisions = Array.from(readDecisionsIndex().values());
-  const proof = readProofLatest();
+  const [date, setDate] = useState("");
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [proof, setProof] = useState<Proof>({ generated_at: "", task_proofs: [], commits: [], deployments: [] });
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const blocked = today.commitments.filter((item) => item.status === "blocked");
-  const pendingDecisions = decisions.filter((item) => item.status === "pending");
+  async function loadAll() {
+    const [todayRes, tasksRes, proofRes] = await Promise.all([
+      fetch(apiUrl("/api/mission-control/today")),
+      fetch(apiUrl("/api/tasks")),
+      fetch(apiUrl("/api/proof/latest")),
+    ]);
+
+    if (!todayRes.ok || !tasksRes.ok || !proofRes.ok) {
+      throw new Error("failed loading dashboard data");
+    }
+
+    const todayData = await todayRes.json();
+    const tasksData = await tasksRes.json();
+    const proofData = await proofRes.json();
+
+    setDate(typeof todayData.date === "string" ? todayData.date : "");
+    setCommitments(Array.isArray(todayData.commitments) ? todayData.commitments : []);
+    setTasks(Array.isArray(tasksData.tasks) ? tasksData.tasks : []);
+    setProof(proofData as Proof);
+  }
+
+  useEffect(() => {
+    loadAll().catch(() => setFeedback("Failed to load mission control dashboard."));
+  }, []);
+
+  const blocked = useMemo(() => commitments.filter((item) => item.status === "blocked"), [commitments]);
+  const uncommittedTasks = useMemo(() => {
+    const committedTaskIds = new Set(commitments.map((c) => c.task_id));
+    return tasks.filter((task) => task.status !== "complete" && !committedTaskIds.has(task.id));
+  }, [tasks, commitments]);
+
+  async function commitTask(taskId: string) {
+    setFeedback(null);
+    const res = await fetch(apiUrl("/api/mission-control/commit-task-to-today"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ task_id: taskId }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setFeedback(typeof body.error === "string" ? body.error : "Commit failed.");
+      return;
+    }
+
+    const data = await res.json();
+    setCommitments(Array.isArray(data.commitments) ? data.commitments : commitments);
+  }
+
+  async function transitionCommitment(id: string, status: Commitment["status"]) {
+    setFeedback(null);
+    const res = await fetch(apiUrl("/api/mission-control/update-status"), {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setFeedback(typeof body.error === "string" ? body.error : "Status transition failed.");
+      return;
+    }
+
+    const data = await res.json();
+    setCommitments(Array.isArray(data.commitments) ? data.commitments : commitments);
+  }
+
+  async function resetDay() {
+    setFeedback(null);
+    const res = await fetch(apiUrl("/api/mission-control/reset-day"), { method: "POST" });
+    if (!res.ok) {
+      setFeedback("Failed to reset day.");
+      return;
+    }
+
+    const data = await res.json();
+    setDate(typeof data.date === "string" ? data.date : "");
+    setCommitments(Array.isArray(data.commitments) ? data.commitments : []);
+  }
 
   return (
     <section>
       <h2>Mission Control</h2>
-      <p className="muted">Execution authority: today.json → tasks.json → decisions/*.json → proof/latest.json</p>
+      <p className="muted small">Date: {date || "-"}</p>
+      {feedback ? <p className="muted">{feedback}</p> : null}
+      <button type="button" onClick={resetDay}>Reset Day</button>
 
       <article className="panel" style={{ marginTop: 12 }}>
         <h3>Today Commitments</h3>
-        <p className="muted small">Date: {today.date}</p>
         <div className="stack">
-          {today.commitments.map((item) => (
+          {commitments.map((item) => (
             <div key={item.id} className="card evidence-card">
               <div className="decision-header">
                 <strong>{item.title}</strong>
                 <span className="badge">{item.status}</span>
               </div>
               <p className="small muted">task_id: {item.task_id} · decision_id: {item.decision_id}</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {item.status === "committed" ? (
+                  <button type="button" onClick={() => transitionCommitment(item.id, "in_progress")}>Start</button>
+                ) : null}
+                {item.status === "in_progress" ? (
+                  <>
+                    <button type="button" onClick={() => transitionCommitment(item.id, "blocked")}>Block</button>
+                    <button type="button" onClick={() => transitionCommitment(item.id, "done")}>Complete</button>
+                  </>
+                ) : null}
+                {item.status === "blocked" ? (
+                  <button type="button" onClick={() => transitionCommitment(item.id, "in_progress")}>Start</button>
+                ) : null}
+              </div>
             </div>
           ))}
-          {!today.commitments.length ? <p className="muted small">No commitments.</p> : null}
+          {!commitments.length ? <p className="muted small">No commitments.</p> : null}
         </div>
       </article>
 
@@ -46,21 +166,22 @@ export default function DashboardPage() {
       </article>
 
       <article className="panel" style={{ marginTop: 12 }}>
-        <h3>Pending Decisions</h3>
+        <h3>Uncommitted Tasks</h3>
         <div className="stack">
-          {pendingDecisions.map((decision) => (
-            <div key={decision.id} className="card evidence-card">
-              <strong>{String(decision.title || decision.id)}</strong>
-              <p className="small muted">decision_id: {decision.id}</p>
+          {uncommittedTasks.map((task) => (
+            <div key={task.id} className="card evidence-card">
+              <strong>{task.title}</strong>
+              <p className="small muted">task_id: {task.id} · decision_id: {task.decision_id}</p>
+              <button type="button" onClick={() => commitTask(task.id)}>Commit to Today</button>
             </div>
           ))}
-          {!pendingDecisions.length ? <p className="muted small">No pending decisions.</p> : null}
+          {!uncommittedTasks.length ? <p className="muted small">No uncommitted tasks.</p> : null}
         </div>
       </article>
 
       <article className="panel" style={{ marginTop: 12 }}>
         <h3>Latest Proof Evidence</h3>
-        <p className="muted small">generated_at: {proof.generated_at}</p>
+        <p className="muted small">generated_at: {proof.generated_at || "-"}</p>
         <p className="small muted">commits: {proof.commits.length} · deployments: {proof.deployments.length}</p>
         <div className="stack">
           {proof.task_proofs.map((item, idx) => (

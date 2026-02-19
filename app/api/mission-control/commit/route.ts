@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       status: "committed" as const,
       proof_required: body?.proof_required !== false,
       proof_id: null,
+      created_at: new Date().toISOString(),
     };
 
     const saved = writeToday({ ...today, commitments: [...today.commitments, commitment] });

@@ -8,6 +8,7 @@ export const TODAY_PATH = path.join(DATA_ROOT, "mission-control", "today.json");
 export const TASKS_PATH = path.join(DATA_ROOT, "tasks.json");
 export const DECISIONS_DIR = path.join(DATA_ROOT, "decisions");
 export const PROOF_PATH = path.join(DATA_ROOT, "proof", "latest.json");
+export const MISSION_CONTROL_HISTORY_DIR = path.join(DATA_ROOT, "mission-control", "history");
 
 export type CommitmentStatus = "committed" | "in_progress" | "blocked" | "done";
 export type TaskStatus = "pending" | "active" | "blocked" | "complete";
@@ -20,6 +21,7 @@ export type TodayCommitment = {
   status: CommitmentStatus;
   proof_required: boolean;
   proof_id: string | null;
+  created_at: string;
 };
 
 export type TodayFile = {
@@ -85,10 +87,12 @@ export function readToday(): TodayFile {
   const fallback = todayDefault();
 
   if (!parsed) {
-    writeJson(TODAY_PATH, fallback);
-    return fallback;
+    const hydrated = autoLinkProofs(fallback);
+    writeJson(TODAY_PATH, hydrated);
+    return hydrated;
   }
 
+  const now = new Date().toISOString();
   const commitments = Array.isArray(parsed.commitments)
     ? parsed.commitments.map((item, index) => {
         const raw = item as Partial<TodayCommitment>;
@@ -100,6 +104,7 @@ export function readToday(): TodayFile {
           status: isCommitmentStatus(raw.status) ? raw.status : "committed",
           proof_required: raw.proof_required !== false,
           proof_id: typeof raw.proof_id === "string" ? raw.proof_id : null,
+          created_at: typeof raw.created_at === "string" ? raw.created_at : now,
         };
       })
     : [];
@@ -109,14 +114,20 @@ export function readToday(): TodayFile {
     commitments,
   };
 
-  writeJson(TODAY_PATH, normalized);
-  return normalized;
+  const hydrated = autoLinkProofs(normalized);
+  writeJson(TODAY_PATH, hydrated);
+  return hydrated;
 }
 
 export function writeToday(data: TodayFile): TodayFile {
   const normalized: TodayFile = {
     date: data.date || new Date().toISOString().slice(0, 10),
-    commitments: Array.isArray(data.commitments) ? data.commitments : [],
+    commitments: Array.isArray(data.commitments)
+      ? data.commitments.map((item) => ({
+          ...item,
+          created_at: item.created_at || new Date().toISOString(),
+        }))
+      : [],
   };
   writeJson(TODAY_PATH, normalized);
   return normalized;
@@ -243,4 +254,29 @@ export function readProofLatest(): ProofFile {
 
   writeJson(PROOF_PATH, normalized);
   return normalized;
+}
+
+export function getProofReferenceForTask(taskId: string): string | null {
+  const proof = readProofLatest();
+  const match = proof.task_proofs.find((item) => item.task_id === taskId);
+  return match?.reference ?? null;
+}
+
+function autoLinkProofs(today: TodayFile): TodayFile {
+  const proof = readProofLatest();
+  if (!proof.task_proofs.length) return today;
+
+  const byTask = new Map<string, string>();
+  for (const item of proof.task_proofs) {
+    byTask.set(item.task_id, item.reference);
+  }
+
+  return {
+    ...today,
+    commitments: today.commitments.map((commitment) => {
+      if (commitment.proof_id) return commitment;
+      const proofId = byTask.get(commitment.task_id);
+      return proofId ? { ...commitment, proof_id: proofId } : commitment;
+    }),
+  };
 }
