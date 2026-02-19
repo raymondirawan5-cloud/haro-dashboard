@@ -3,6 +3,7 @@ export function getPathPrefix(): string {
   if (typeof window !== "undefined") {
     const p = window.location.pathname || "";
     if (p === "/haro" || p.startsWith("/haro/")) return "/haro";
+    if (p === "/haro-dev" || p.startsWith("/haro-dev/")) return "/haro-dev";
     return "";
   }
 

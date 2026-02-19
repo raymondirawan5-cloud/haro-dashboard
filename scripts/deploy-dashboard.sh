@@ -81,4 +81,8 @@ done
 
 DEPLOYED_COMMIT="$(git -C "$REPO_DIR" rev-parse --short HEAD)"
 DEPLOYED_BRANCH="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)"
+DEPLOY_STAMP_PATH="${HARO_DEPLOY_STAMP_PATH:-/home/ray/.openclaw/workspace/.openclaw/proof/latest-deploy.txt}"
+mkdir -p "$(dirname "$DEPLOY_STAMP_PATH")"
+date -u +"%Y-%m-%dT%H:%M:%SZ" > "$DEPLOY_STAMP_PATH"
+
 info "deployed: ${DEPLOYED_BRANCH}@${DEPLOYED_COMMIT}"
