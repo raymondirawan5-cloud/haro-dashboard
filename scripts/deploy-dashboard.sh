@@ -57,7 +57,7 @@ run git -C "$REPO_DIR" fetch --all --prune
 run git -C "$REPO_DIR" checkout "$STABLE_BRANCH"
 run git -C "$REPO_DIR" pull --ff-only origin "$STABLE_BRANCH"
 run npm --prefix "$REPO_DIR" ci
-run env HARO_ASSET_PREFIX=/haro npm --prefix "$REPO_DIR" run build
+run env NEXT_PUBLIC_BASE_PATH=/haro npm --prefix "$REPO_DIR" run build
 run systemctl --user restart "$SERVICE_NAME"
 
 for url in "${HEALTH_URLS[@]}"; do
@@ -71,7 +71,7 @@ Rollback hint:
   git checkout "$STABLE_BRANCH"
   git reset --hard "$PREV_COMMIT"
   npm ci
-  HARO_ASSET_PREFIX=/haro npm run build
+  NEXT_PUBLIC_BASE_PATH=/haro npm run build
   systemctl --user restart "$SERVICE_NAME"
 Attempted deploy: $CURRENT_BRANCH@$PREV_COMMIT -> $STABLE_BRANCH@$NEW_COMMIT
 EOF

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { withPrefix } from "@/lib/path-prefix";
 
 type NavItem = { label: string; href: string };
 
@@ -21,11 +20,10 @@ export default function TopNav() {
   return (
     <nav className="nav" aria-label="Primary">
       {NAV_ITEMS.map((item) => {
-        const fullHref = withPrefix(item.href);
-        const isActive = pathname === fullHref;
+        const isActive = pathname === item.href;
 
         return (
-          <Link key={item.href} href={fullHref} className={`nav-link${isActive ? " active" : ""}`} aria-current={isActive ? "page" : undefined}>
+          <Link key={item.href} href={item.href} className={`nav-link${isActive ? " active" : ""}`} aria-current={isActive ? "page" : undefined}>
             {item.label}
           </Link>
         );

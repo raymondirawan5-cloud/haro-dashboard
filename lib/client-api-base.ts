@@ -1,12 +1,6 @@
-export function getClientBasePath(): string {
-  if (typeof window === "undefined") return "";
-  const p = window.location.pathname || "";
-  if (p === "/haro" || p.startsWith("/haro/")) return "/haro";
-  if (p === "/haro-dev" || p.startsWith("/haro-dev/")) return "/haro-dev";
-  return "";
-}
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export function apiUrl(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${getClientBasePath()}${normalized}`;
+  return `${basePath}${normalized}`;
 }
