@@ -13,11 +13,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=1
 fi
 
-if git -C "$REPO_DIR" show-ref --verify --quiet refs/heads/main || git -C "$REPO_DIR" ls-remote --heads origin main | grep -q main; then
-  STABLE_BRANCH="main"
-else
-  STABLE_BRANCH="stable"
-fi
+STABLE_BRANCH="feat/mission-control-stabilization"
 
 run() {
   echo "+ $*"
