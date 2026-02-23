@@ -97,6 +97,7 @@ export default function DashboardPage() {
         </div>
         <div className="inline-actions">
           <OperatorButton variant="ghost" onClick={toggleFocusMode}>Focus Mode: {focusMode ? "ON" : "OFF"}</OperatorButton>
+          <Link href="/dashboard/graph" className="nav-link">Graph</Link>
           <Link href="/dashboard/kanban" className="nav-link active">Open Full Kanban</Link>
         </div>
       </div>

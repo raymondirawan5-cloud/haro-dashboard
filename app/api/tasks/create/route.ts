@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDecisionsIndex, readTasks, writeTasks } from "@/lib/mission-control-store";
+import { syncTaskCreated } from "@/lib/graph-store";
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
     };
 
     const saved = writeTasks({ ...tasksFile, tasks: [...tasksFile.tasks, task], updated_at: now });
+    try {
+      syncTaskCreated(task);
+    } catch (error) {
+      console.error("graph sync failed (task create)", error);
+    }
     return NextResponse.json({ task, ...saved }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "invalid request" }, { status: 400 });

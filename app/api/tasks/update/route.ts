@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readDecisionsIndex, readTasks, writeTasks } from "@/lib/mission-control-store";
+import { syncTaskProofLinked } from "@/lib/graph-store";
 
 export async function PATCH(request: Request) {
   try {
@@ -33,6 +34,11 @@ export async function PATCH(request: Request) {
     const tasks = [...tasksFile.tasks];
     tasks[idx] = next;
     const saved = writeTasks({ ...tasksFile, tasks, updated_at: new Date().toISOString() });
+    try {
+      syncTaskProofLinked(next);
+    } catch (error) {
+      console.error("graph sync failed (task update)", error);
+    }
     return NextResponse.json({ task: next, ...saved });
   } catch {
     return NextResponse.json({ error: "invalid request" }, { status: 400 });

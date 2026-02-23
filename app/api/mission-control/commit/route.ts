@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readToday, writeToday } from "@/lib/mission-control-store";
+import { syncCommitmentCreated } from "@/lib/graph-store";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,11 @@ export async function POST(request: Request) {
     };
 
     const saved = writeToday({ ...today, commitments: [...today.commitments, commitment] });
+    try {
+      syncCommitmentCreated(commitment);
+    } catch (error) {
+      console.error("graph sync failed (commitment create)", error);
+    }
     return NextResponse.json({ commitment, ...saved }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "invalid request" }, { status: 400 });
