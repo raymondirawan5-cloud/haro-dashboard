@@ -17,19 +17,25 @@ export const NODE_TYPES = [
   "idea",
   "project",
   "person",
+  "ambition",
+  "experience",
+  "insight",
 ] as const;
 
 export const RELATION_TYPES = [
+  "supports",
   "drives",
+  "derived_from",
+  "implemented_by",
+  "verified_by",
+  "inspired_by",
+  "related_to",
+  // backward compatibility from previous graph layer
   "blocks",
   "depends_on",
-  "supports",
   "contradicts",
   "references",
-  "verified_by",
-  "derived_from",
   "part_of",
-  "related_to",
 ] as const;
 
 export type GraphNodeType = (typeof NODE_TYPES)[number];
@@ -39,7 +45,7 @@ export type GraphNode = {
   id: string;
   type: GraphNodeType;
   title: string;
-  ref_path: string;
+  ref_path: string | null;
   created_at: string;
   metadata: Record<string, unknown>;
 };
@@ -88,6 +94,20 @@ function isRelationType(value: unknown): value is GraphRelationType {
   return typeof value === "string" && (RELATION_TYPES as readonly string[]).includes(value);
 }
 
+function toAbsoluteRef(refPath: string): string {
+  if (path.isAbsolute(refPath)) return refPath;
+  return path.join(WORKSPACE_DIR, refPath);
+}
+
+function assertExistingRef(refPath: string | null): string | null {
+  if (!refPath) return null;
+  const resolved = toAbsoluteRef(refPath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`ref_path does not exist: ${resolved}`);
+  }
+  return resolved;
+}
+
 function normalizeNodes(value: unknown): GraphNode[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -96,12 +116,12 @@ function normalizeNodes(value: unknown): GraphNode[] {
       if (!raw || typeof raw.id !== "string" || !raw.id.trim()) return null;
       if (!isNodeType(raw.type)) return null;
       if (typeof raw.title !== "string") return null;
-      if (typeof raw.ref_path !== "string" || !raw.ref_path.trim()) return null;
+      if (raw.ref_path !== null && typeof raw.ref_path !== "string") return null;
       return {
         id: raw.id.trim(),
         type: raw.type,
         title: raw.title,
-        ref_path: raw.ref_path,
+        ref_path: assertExistingRef(raw.ref_path ?? null),
         created_at: typeof raw.created_at === "string" ? raw.created_at : new Date().toISOString(),
         metadata: raw.metadata && typeof raw.metadata === "object" ? raw.metadata : {},
       };
@@ -145,19 +165,6 @@ function loadEdgesFile(): EdgesFile {
   return normalized;
 }
 
-function toAbsoluteRef(refPath: string): string {
-  if (path.isAbsolute(refPath)) return refPath;
-  return path.join(WORKSPACE_DIR, refPath);
-}
-
-function assertExistingRef(refPath: string) {
-  const resolved = toAbsoluteRef(refPath);
-  if (!fs.existsSync(resolved)) {
-    throw new Error(`ref_path does not exist: ${resolved}`);
-  }
-  return resolved;
-}
-
 export function getGraph(): GraphAdjacency {
   const nodes = loadNodesFile().nodes;
   const edges = loadEdgesFile().edges;
@@ -170,20 +177,33 @@ export function getNode(id: string): GraphNode | null {
   return nodes.find((node) => node.id === id) ?? null;
 }
 
+export function getNodesByType(type: GraphNodeType): GraphNode[] {
+  return getGraph().nodes.filter((node) => node.type === type);
+}
+
 export function createNode(node: GraphNode): GraphNode {
   if (!node.id.trim()) throw new Error("node.id is required");
   if (!isNodeType(node.type)) throw new Error("invalid node.type");
 
-  const existingRefPath = assertExistingRef(node.ref_path);
+  const resolvedRef = assertExistingRef(node.ref_path ?? null);
   const nodesFile = loadNodesFile();
   const existing = nodesFile.nodes.find((item) => item.id === node.id);
   if (existing) return existing;
 
+  if (node.type === "insight") {
+    const duplicateTitle = nodesFile.nodes.find(
+      (item) => item.type === "insight" && item.title.trim().toLowerCase() === node.title.trim().toLowerCase(),
+    );
+    if (duplicateTitle) {
+      throw new Error(`duplicate node title: ${node.title}`);
+    }
+  }
+
   const next: GraphNode = {
     id: node.id.trim(),
     type: node.type,
-    title: node.title,
-    ref_path: existingRefPath,
+    title: node.title.trim(),
+    ref_path: resolvedRef,
     created_at: node.created_at || new Date().toISOString(),
     metadata: node.metadata && typeof node.metadata === "object" ? node.metadata : {},
   };
@@ -224,7 +244,7 @@ export function ensureNodeExists(entity: {
   id: string;
   type: GraphNodeType;
   title: string;
-  ref_path: string;
+  ref_path: string | null;
   metadata?: Record<string, unknown>;
 }): GraphNode {
   const existing = getNode(entity.id);
@@ -258,6 +278,7 @@ export function getAdjacencyList(): GraphAdjacency {
 
 function findDecisionRefPath(decisionId: string): string {
   if (!fs.existsSync(DECISIONS_DIR)) return DECISIONS_DIR;
+
   const files = fs.readdirSync(DECISIONS_DIR).filter((name) => name.endsWith(".json"));
   for (const name of files) {
     const full = path.join(DECISIONS_DIR, name);

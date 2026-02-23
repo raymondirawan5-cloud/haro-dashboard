@@ -8,6 +8,8 @@ type NavItem = { label: string; href: string };
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Kanban", href: "/dashboard/kanban" },
+  { label: "Graph", href: "/dashboard/graph" },
+  { label: "Brain", href: "/dashboard/brain" },
   { label: "Decisions", href: "/mission-control/decisions" },
   { label: "Today", href: "/mission-control/today" },
   { label: "Memories", href: "/second-brain/memories" },

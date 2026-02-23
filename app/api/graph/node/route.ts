@@ -7,10 +7,10 @@ export async function POST(request: Request) {
     const id = typeof body?.id === "string" ? body.id.trim() : "";
     const type = body?.type;
     const title = typeof body?.title === "string" ? body.title : "";
-    const refPath = typeof body?.ref_path === "string" ? body.ref_path : "";
+    const refPath = body?.ref_path === null ? null : typeof body?.ref_path === "string" ? body.ref_path : null;
 
-    if (!id || !title || !refPath) {
-      return NextResponse.json({ error: "id, type, title, ref_path are required" }, { status: 400 });
+    if (!id || !title) {
+      return NextResponse.json({ error: "id, type, title are required" }, { status: 400 });
     }
 
     if (!(NODE_TYPES as readonly string[]).includes(type)) {
