@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mission Control — Ray</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050508;
+      --panel: rgba(255,255,255,0.04);
+      --panel-strong: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.06);
+      --text: #eceef5;
+      --muted: #9ca3b6;
+      --accent: #7c5cff;
+      --accent-soft: rgba(124,92,255,0.2);
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --radius: 16px;
+      --shadow: 0 20px 50px rgba(0,0,0,.45);
+      --gap: 1rem;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: radial-gradient(circle at 20% -10%, #19112f 0, transparent 30%), var(--bg); color: var(--text); font-family: Inter, sans-serif; }
+    body { min-height: 100vh; }
+    .container { max-width: 1600px; margin: 0 auto; padding: 2.5rem; }
+
+    .glass {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      position: sticky; top: 0; z-index: 40;
+      margin: 1rem 1rem 0;
+      padding: .9rem 1.1rem;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1rem;
+    }
+    .brand { display: flex; gap: .8rem; align-items: center; font-weight: 800; letter-spacing: .2px; }
+    .logo { width: 32px; height: 32px; border-radius: 10px; background: linear-gradient(140deg, var(--accent), #00d5ff); box-shadow: 0 0 20px rgba(124,92,255,.5); }
+
+    .tabs { display: flex; gap: .35rem; flex-wrap: wrap; justify-content: center; }
+    .tab-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: .55rem .8rem;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: .22s ease;
+    }
+    .tab-btn:hover { color: #fff; background: rgba(255,255,255,.05); }
+    .tab-btn.active { color: #fff; background: var(--accent-soft); border-color: rgba(124,92,255,.35); }
+
+    .header-right { display: flex; justify-content: flex-end; gap: .7rem; align-items: center; }
+    .search {
+      width: 260px; max-width: 45vw;
+      border: 1px solid var(--border); background: rgba(0,0,0,.25);
+      color: var(--text); padding: .58rem .8rem; border-radius: 10px;
+      outline: none;
+    }
+    .status-wrap { display: flex; align-items: center; gap: .6rem; font-size: .86rem; color: var(--muted); }
+    .dot {
+      width: 10px; height: 10px; border-radius: 999px; background: var(--danger);
+      box-shadow: 0 0 16px rgba(239,68,68,.6);
+      animation: pulse 1.7s infinite;
+    }
+    .dot.online { background: var(--ok); box-shadow: 0 0 16px rgba(34,197,94,.65); }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.2);opacity:.75;} }
+
+    .tab-panel { display: none; animation: fadeInUp .35s ease both; }
+    .tab-panel.active { display: block; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+    .welcome { padding: 1rem 1.2rem; margin-bottom: 1rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .6rem; }
+
+    .grid { display: grid; gap: var(--gap); }
+    .metrics { grid-template-columns: repeat(4, minmax(220px,1fr)); margin-bottom: 1rem; }
+    .card { padding: 1rem; position: relative; overflow: hidden; }
+    .accent-top::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), #00d5ff);
+    }
+    .metric-value { font-size: 1.7rem; font-weight: 800; margin-top: .4rem; }
+    .trend { font-size: .82rem; color: var(--muted); margin-top: .2rem; }
+
+    .two-col { grid-template-columns: 1.2fr .8fr; }
+    .feed { max-height: 430px; overflow: auto; }
+    .feed-item { border: 1px solid var(--border); border-radius: 12px; padding: .7rem; margin-bottom: .6rem; background: rgba(255,255,255,.02); }
+    .feed-time { color: var(--muted); font-size: .8rem; margin-top: .25rem; }
+
+    .row { display: flex; gap: .6rem; align-items: center; }
+    input, textarea, select, button {
+      font-family: inherit;
+    }
+    .input, .textarea, .select {
+      width: 100%; background: rgba(0,0,0,.25); color: var(--text);
+      border: 1px solid var(--border); border-radius: 10px; padding: .6rem .7rem;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      border-radius: 10px;
+      padding: .58rem .82rem;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: rgba(124,92,255,.35); background: var(--accent-soft); }
+    .btn.primary { background: linear-gradient(90deg, var(--accent), #5f8bff); border: none; }
+    .btn.danger { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); }
+
+    .priority-list li { display: flex; gap: .6rem; align-items: center; padding: .5rem .35rem; border-bottom: 1px dashed var(--border); }
+
+    .kanban { grid-template-columns: repeat(3, minmax(270px,1fr)); align-items: start; }
+    .col h3 { margin-top: 0; }
+    .task { margin-bottom: .7rem; padding: .7rem; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.02); cursor: pointer; }
+    .badge { display: inline-block; padding: .2rem .5rem; border-radius: 999px; font-size: .72rem; margin-top: .4rem; }
+    .high { background: rgba(239,68,68,.2); color: #fda4af; }
+    .medium { background: rgba(245,158,11,.2); color: #fcd34d; }
+    .low { background: rgba(34,197,94,.2); color: #86efac; }
+
+    .phase { padding: 1rem; margin-bottom: .8rem; border-left: 3px solid var(--border); }
+    .phase.current { border-left-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(124,92,255,.25), 0 0 30px rgba(124,92,255,.12); }
+    .phase ul { margin: .4rem 0 0 1.1rem; color: var(--muted); }
+
+    .notes-wrap textarea { min-height: 52vh; resize: vertical; line-height: 1.5; }
+
+    .agent-grid { grid-template-columns: repeat(4, minmax(220px,1fr)); }
+    .agent-card { padding: 1rem; cursor: pointer; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.02); }
+    .agent-status { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .3rem; }
+    .online { background: var(--ok); }
+    .busy { background: var(--warn); }
+    .offline { background: #64748b; }
+
+    .drawer {
+      position: fixed; top: 0; right: -520px; width: 500px; max-width: 95vw; height: 100vh;
+      background: #0a0a12; border-left: 1px solid var(--border); z-index: 60;
+      transition: right .25s ease; padding: 1rem;
+      overflow: auto;
+    }
+    .drawer.open { right: 0; }
+
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 70; display: none;
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal.open { display: flex; }
+    .modal-box { width: 620px; max-width: 100%; padding: 1rem; }
+
+    .decision-item { border: 1px solid var(--border); border-radius: 12px; padding: .75rem; margin-bottom: .6rem; background: rgba(255,255,255,.02); }
+
+    @media (max-width: 1200px) {
+      .metrics { grid-template-columns: repeat(2, minmax(220px,1fr)); }
+      .two-col { grid-template-columns: 1fr; }
+      .agent-grid { grid-template-columns: repeat(2, minmax(220px,1fr)); }
+      .header { grid-template-columns: 1fr; }
+      .header-right { justify-content: flex-start; }
+    }
+    @media (max-width: 760px) {
+      .container { padding: 1rem; }
+      .metrics, .kanban, .agent-grid { grid-template-columns: 1fr; }
+      .search { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header glass">
+    <div class="brand"><div class="logo"></div><div>Mission Control · Ray</div></div>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="header-right">
+      <input class="search" id="searchInput" placeholder="Search (Ctrl/Cmd + K)" />
+      <div id="weatherMini" class="status-wrap">🌤 --</div>
+      <div class="status-wrap">
+        <span class="dot" id="statusDot"></span>
+        <span id="serverState">Server: Offline</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="tab-dashboard" class="tab-panel active">
+      <div class="welcome glass">
+        <strong id="welcomeText">Good day, Boss Ray</strong>
+        <span id="clockText"></span>
+      </div>
+      <div class="grid metrics" id="metricsGrid"></div>
+      <div class="grid two-col">
+        <div class="card glass">
+          <h3>Recent Activity</h3>
+          <div class="feed" id="activityFeed"></div>
+        </div>
+        <div class="card glass">
+          <h3>Top Priorities</h3>
+          <ul class="priority-list" id="priorityList"></ul>
+          <div class="row" style="margin-top:.7rem;">
+            <input class="input" id="newPriority" placeholder="Add new priority..." />
+            <button class="btn" id="addPriorityBtn">Add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-projects" class="tab-panel">
+      <div class="grid kanban" id="kanbanBoard"></div>
+    </section>
+
+    <section id="tab-timeline" class="tab-panel">
+      <div class="card glass" id="timelineWrap"></div>
+    </section>
+
+    <section id="tab-notes" class="tab-panel">
+      <div class="card glass notes-wrap">
+        <h3>Notes</h3>
+        <textarea id="notesArea" class="textarea" placeholder="Write markdown-style notes..."></textarea>
+        <div class="row" style="margin-top:.5rem; justify-content:space-between; color:var(--muted); font-size:.85rem;">
+          <span id="charCount">0 chars</span>
+          <span id="savedAt">Not saved yet</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-command" class="tab-panel">
+      <div class="grid agent-grid" id="agentGrid"></div>
+      <div class="card glass" style="margin-top:1rem;">
+        <h3>Executive Decisions</h3>
+        <div id="decisionsWrap"></div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="drawer" id="agentDrawer"></aside>
+
+  <div class="modal" id="taskModal">
+    <div class="modal-box glass">
+      <h3>Send Task to <span id="modalAgentName"></span></h3>
+      <textarea id="taskText" class="textarea" rows="5" placeholder="Describe the task..."></textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:.8rem;">
+        <button class="btn" id="cancelTaskBtn">Cancel</button>
+        <button class="btn primary" id="sendTaskBtn">Send Task</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =============================
+    // Mission Control State + Config
+    // =============================
+    const STORAGE_KEY = 'mc_state_v1';
+    const SERVER_BASE = `${window.location.protocol}//${window.location.hostname}:8899`;
+    const TABS = [
+      { id: 'dashboard', label: '📊 Dashboard' },
+      { id: 'projects', label: '📋 Projects' },
+      { id: 'timeline', label: '📅 Timeline' },
+      { id: 'notes', label: '📝 Notes' },
+      { id: 'command', label: '🏢 Command Center' },
+    ];
+
+    const timelineConfig = [
+      {
+        title: 'Foundation Sprint', range: 'Jan - Mar 2026', current: false,
+        description: 'Set operating system and personal execution rhythms.',
+        milestones: [
+          { text: 'Mission Control baseline deployed', done: true },
+          { text: 'Weekly review ritual stabilized', done: true },
+          { text: 'Decision journal active', done: false }
+        ]
+      },
+      {
+        title: 'Scale Through Systems', range: 'Apr - Jul 2026', current: true,
+        description: 'Automate recurring operations and focus on high leverage bets.',
+        milestones: [
+          { text: 'Padel Vision MVP validation', done: false },
+          { text: 'Content pipeline automation', done: false },
+          { text: 'Agent command center fully integrated', done: true }
+        ]
+      },
+      {
+        title: 'Freedom Architecture', range: 'Aug - Dec 2026', current: false,
+        description: 'Build systems that run while asleep and reclaim quality time.',
+        milestones: [
+          { text: '2 income streams partially autonomous', done: false },
+          { text: 'Weekly family/travel blocks protected', done: false }
+        ]
+      }
+    ];
+
+    const defaultState = {
+      goalDate: '2026-12-31',
+      priorities: [
+        { text: 'Ship one high-leverage action before noon', done: false },
+        { text: 'Review 1 insight from podcast/book and convert to action', done: false },
+        { text: 'Close today with tomorrow plan in Notes', done: false },
+      ],
+      projects: {
+        backlog: [
+          { id: uid(), title: 'Recipe Adventure System', desc: 'Track recipes to try and difficulty progression.', priority: 'low', createdAt: nowStr() },
+          { id: uid(), title: 'Travel Master List', desc: 'Build place ideas + budget + best timing.', priority: 'medium', createdAt: nowStr() }
+        ],
+        inProgress: [
+          { id: uid(), title: 'Padel Vision Validation', desc: 'Finalize fixtures + confidence reporting.', priority: 'high', createdAt: nowStr() }
+        ],
+        done: []
+      },
+      notes: '',
+      activity: [
+        { ts: Date.now(), text: 'Mission Control initialized.' }
+      ],
+      agents: [
+        {
+          id: uid(), name: 'Haro', role: 'Chief Operator', status: 'online', model: 'gpt-5.3-codex',
+          lastActive: nowStr(),
+          description: 'Coordinates priorities, execution cadence, and accountability loops.',
+          capabilities: ['Planning', 'Execution tracking', 'Strategic challenge', 'Documentation'],
+          perfNotes: 'Strong on system design and operational follow-through.',
+          activity: ['Initialized command center.']
+        },
+        {
+          id: uid(), name: 'Scout', role: 'Research Lead', status: 'busy', model: 'kimi-k2.5',
+          lastActive: nowStr(),
+          description: 'Collects current market intel, trends, and competitor movement.',
+          capabilities: ['Web research', 'Trend synthesis', 'Brief generation'],
+          perfNotes: 'Fast signal extraction; needs tighter source filtering on noisy topics.',
+          activity: ['Prepared trend snapshot for faceless content ideas.']
+        },
+        {
+          id: uid(), name: 'Forge', role: 'Build Engineer', status: 'online', model: 'gpt-5.3-codex',
+          lastActive: nowStr(),
+          description: 'Turns concepts into working prototypes and production-ready code.',
+          capabilities: ['Full-stack prototyping', 'Debugging', 'API integration'],
+          perfNotes: 'Excellent shipping velocity; monitor scope creep.',
+          activity: ['Stabilized dashboard server sync layer.']
+        },
+        {
+          id: uid(), name: 'Ledger', role: 'Finance & Ops Analyst', status: 'offline', model: 'llama3.2:3b',
+          lastActive: nowStr(),
+          description: 'Tracks business metrics, cashflow assumptions, and operational efficiency.',
+          capabilities: ['P&L notes', 'Unit economics', 'Ops checklists'],
+          perfNotes: 'Reliable with structure; needs fresher context input cadence.',
+          activity: ['No recent update.']
+        }
+      ],
+      decisions: [
+        {
+          date: today(),
+          question: 'What should be the primary execution metric?',
+          summary: 'Count of completed actions aligned with stated intent.',
+          consulted: ['Haro', 'Ledger']
+        },
+        {
+          date: today(),
+          question: 'Where to focus highest leverage this quarter?',
+          summary: 'Prioritize Padel Vision validation + system automation.',
+          consulted: ['Haro', 'Scout', 'Forge']
+        }
+      ],
+      server: { online: false, lastSync: null },
+      weather: { temp: '--', condition: '--' }
+    };
+
+    let state = loadState();
+    let activeTab = 'dashboard';
+    let activeAgentId = null;
+
+    // =============================
+    // Init
+    // =============================
+    initUI();
+    renderAll();
+    startClock();
+    connectServer();
+    setupAutosync();
+
+    // =============================
+    // UI Setup
+    // =============================
+    function initUI() {
+      const tabsEl = document.getElementById('tabs');
+      tabsEl.innerHTML = TABS.map(t => `<button class="tab-btn ${t.id===activeTab?'active':''}" data-tab="${t.id}">${t.label}</button>`).join('');
+      tabsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-tab]');
+        if (!btn) return;
+        activeTab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === activeTab));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(`tab-${activeTab}`).classList.add('active');
+      });
+
+      document.getElementById('addPriorityBtn').onclick = addPriority;
+      document.getElementById('newPriority').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPriority(); });
+
+      const notes = document.getElementById('notesArea');
+      notes.addEventListener('input', () => {
+        state.notes = notes.value;
+        saveState('Updated notes');
+        renderNotesMeta();
+      });
+
+      const search = document.getElementById('searchInput');
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          search.focus();
+        }
+      });
+
+      search.addEventListener('input', () => {
+        const q = search.value.trim().toLowerCase();
+        filterDashboard(q);
+      });
+
+      document.getElementById('cancelTaskBtn').onclick = closeModal;
+      document.getElementById('sendTaskBtn').onclick = sendTaskToAgent;
+      document.getElementById('taskModal').addEventListener('click', (e) => { if (e.target.id === 'taskModal') closeModal(); });
+    }
+
+    // =============================
+    // Renderers
+    // =============================
+    function renderAll() {
+      renderWelcome();
+      renderMetrics();
+      renderActivity();
+      renderPriorities();
+      renderKanban();
+      renderTimeline();
+      renderNotes();
+      renderAgents();
+      renderDecisions();
+      renderServerStatus();
+      renderWeather();
+    }
+
+    function renderWelcome() {
+      const h = new Date().getHours();
+      const greeting = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+      document.getElementById('welcomeText').textContent = `Good ${greeting}, Boss Ray`;
+    }
+
+    function startClock() {
+      const tick = () => {
+        document.getElementById('clockText').textContent = new Date().toLocaleString();
+      };
+      tick();
+      setInterval(tick, 1000);
+    }
+
+    function renderMetrics() {
+      const completed = state.priorities.filter(p => p.done).length;
+      const total = state.priorities.length || 1;
+      const progress = Math.round((completed / total) * 100);
+      const activeProjects = state.projects.backlog.length + state.projects.inProgress.length;
+      const tasksToday = state.activity.filter(a => sameDay(a.ts, Date.now())).length;
+      const daysGoal = Math.max(0, Math.ceil((new Date(state.goalDate) - Date.now()) / 86400000));
+
+      const cards = [
+        { icon: '🎯', label: 'Progress', value: `${progress}%`, trend: `${completed}/${total} top priorities complete` },
+        { icon: '🚀', label: 'Active Projects', value: activeProjects, trend: `${state.projects.inProgress.length} currently in progress` },
+        { icon: '✅', label: 'Tasks Today', value: tasksToday, trend: `Recent execution count today` },
+        { icon: '⏳', label: 'Days to Goal', value: daysGoal, trend: `Target date ${state.goalDate}` },
+      ];
+
+      document.getElementById('metricsGrid').innerHTML = cards.map(c => `
+        <div class="card glass accent-top">
+          <div>${c.icon} <span style="color:var(--muted)">${c.label}</span></div>
+          <div class="metric-value">${c.value}</div>
+          <div class="trend">${c.trend}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderActivity() {
+      const el = document.getElementById('activityFeed');
+      const list = [...state.activity].sort((a,b) => b.ts - a.ts).slice(0, 200);
+      el.innerHTML = list.map(i => `
+        <div class="feed-item">
+          <div>${escapeHtml(i.text)}</div>
+          <div class="feed-time">${new Date(i.ts).toLocaleString()}</div>
+        </div>
+      `).join('') || '<div style="color:var(--muted)">No activity yet.</div>';
+    }
+
+    function renderPriorities() {
+      const ul = document.getElementById('priorityList');
+      ul.innerHTML = state.priorities.map((p, idx) => `
+        <li>
+          <input type="checkbox" ${p.done ? 'checked' : ''} onchange="togglePriority(${idx})" />
+          <input class="input" value="${escapeAttr(p.text)}" oninput="editPriority(${idx}, this.value)" />
+          <button class="btn danger" onclick="deletePriority(${idx})">✕</button>
+        </li>
+      `).join('');
+    }
+
+    function renderKanban() {
+      const columns = [
+        { key: 'backlog', title: 'Backlog' },
+        { key: 'inProgress', title: 'In Progress' },
+        { key: 'done', title: 'Done' },
+      ];
+      const board = document.getElementById('kanbanBoard');
+      board.innerHTML = columns.map(col => `
+        <div class="card glass col">
+          <div class="row" style="justify-content:space-between;">
+            <h3>${col.title}</h3>
+            <button class="btn" onclick="addTask('${col.key}')">+ Task</button>
+          </div>
+          ${(state.projects[col.key] || []).map(t => `
+            <div class="task" onclick="editTask('${col.key}','${t.id}')">
+              <strong>${escapeHtml(t.title)}</strong>
+              <div style="color:var(--muted); margin-top:.25rem;">${escapeHtml((t.desc || '').slice(0, 100))}</div>
+              <div class="badge ${t.priority}">${t.priority.toUpperCase()}</div>
+              <div class="feed-time">${t.createdAt}</div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    function renderTimeline() {
+      const wrap = document.getElementById('timelineWrap');
+      wrap.innerHTML = '<h3>Roadmap</h3>' + timelineConfig.map(p => `
+        <div class="phase ${p.current ? 'current' : ''}">
+          <div class="row" style="justify-content:space-between;">
+            <strong>${p.title}</strong><span style="color:var(--muted)">${p.range}</span>
+          </div>
+          <div style="margin-top:.35rem;">${p.description}</div>
+          <ul>${p.milestones.map(m => `<li>${m.done ? '✅' : '⬜'} ${m.text}</li>`).join('')}</ul>
+        </div>
+      `).join('');
+    }
+
+    function renderNotes() {
+      const notes = document.getElementById('notesArea');
+      notes.value = state.notes || '';
+      renderNotesMeta();
+    }
+
+    function renderNotesMeta() {
+      const txt = state.notes || '';
+      document.getElementById('charCount').textContent = `${txt.length} chars`;
+      document.getElementById('savedAt').textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
+    }
+
+    function renderAgents() {
+      const grid = document.getElementById('agentGrid');
+      grid.innerHTML = state.agents.map(a => `
+        <div class="agent-card" onclick="openAgent('${a.id}')">
+          <div class="row" style="justify-content:space-between; align-items:flex-start;">
+            <div>
+              <strong>${escapeHtml(a.name)}</strong>
+              <div style="color:var(--muted)">${escapeHtml(a.role)}</div>
+            </div>
+            <span><span class="agent-status ${a.status}"></span>${a.status}</span>
+          </div>
+          <div style="margin-top:.5rem;color:var(--muted)">Model: ${escapeHtml(a.model)}</div>
+          <div class="feed-time">Last active: ${escapeHtml(a.lastActive)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderDecisions() {
+      const wrap = document.getElementById('decisionsWrap');
+      wrap.innerHTML = state.decisions.map(d => `
+        <div class="decision-item">
+          <div class="feed-time">${d.date}</div>
+          <strong>${escapeHtml(d.question)}</strong>
+          <div style="margin-top:.3rem;">${escapeHtml(d.summary)}</div>
+          <div class="feed-time">Consulted: ${(d.consulted || []).map(escapeHtml).join(', ')}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderServerStatus() {
+      const dot = document.getElementById('statusDot');
+      dot.classList.toggle('online', !!state.server.online);
+      document.getElementById('serverState').textContent = `Server: ${state.server.online ? 'Online' : 'Offline'}`;
+    }
+
+    function renderWeather() {
+      const w = state.weather || { temp: '--', condition: '--' };
+      document.getElementById('weatherMini').textContent = `🌤 ${w.temp}°C · ${w.condition}`;
+    }
+
+    // =============================
+    // Priority actions
+    // =============================
+    function addPriority() {
+      const i = document.getElementById('newPriority');
+      const v = i.value.trim();
+      if (!v) return;
+      state.priorities.push({ text: v, done: false });
+      i.value = '';
+      saveState(`Added priority: ${v}`);
+      renderPriorities();
+      renderMetrics();
+    }
+    window.togglePriority = (idx) => {
+      state.priorities[idx].done = !state.priorities[idx].done;
+      saveState(`Updated priority status: ${state.priorities[idx].text}`);
+      renderPriorities();
+      renderMetrics();
+    };
+    window.editPriority = (idx, val) => {
+      state.priorities[idx].text = val;
+      saveState('Edited priority');
+    };
+    window.deletePriority = (idx) => {
+      const removed = state.priorities[idx]?.text || 'priority';
+      state.priorities.splice(idx, 1);
+      saveState(`Deleted priority: ${removed}`);
+      renderPriorities();
+      renderMetrics();
+    };
+
+    // =============================
+    // Kanban actions
+    // =============================
+    window.addTask = (col) => {
+      const title = prompt('Task title?');
+      if (!title) return;
+      const desc = prompt('Task description?') || '';
+      const priority = (prompt('Priority: high / medium / low', 'medium') || 'medium').toLowerCase();
+      state.projects[col].push({ id: uid(), title, desc, priority: ['high','medium','low'].includes(priority) ? priority : 'medium', createdAt: nowStr() });
+      saveState(`Added task to ${col}: ${title}`);
+      renderKanban();
+      renderMetrics();
+    };
+
+    window.editTask = (col, id) => {
+      const item = state.projects[col].find(t => t.id === id);
+      if (!item) return;
+      const title = prompt('Edit title', item.title);
+      if (title === null) return;
+      const desc = prompt('Edit description', item.desc);
+      if (desc === null) return;
+      const priority = (prompt('Priority: high / medium / low', item.priority) || item.priority).toLowerCase();
+      const action = prompt('Type "delete" to remove, or press OK to save.', 'save');
+      if (action === null) return;
+      if (action.toLowerCase() === 'delete') {
+        state.projects[col] = state.projects[col].filter(t => t.id !== id);
+        saveState(`Deleted task: ${item.title}`);
+      } else {
+        item.title = title;
+        item.desc = desc;
+        item.priority = ['high','medium','low'].includes(priority) ? priority : item.priority;
+        saveState(`Edited task: ${item.title}`);
+      }
+      renderKanban();
+      renderMetrics();
+    };
+
+    // =============================
+    // Agent drawer + modal
+    // =============================
+    window.openAgent = (id) => {
+      activeAgentId = id;
+      const a = state.agents.find(x => x.id === id);
+      if (!a) return;
+      const drawer = document.getElementById('agentDrawer');
+      drawer.innerHTML = `
+        <div class="row" style="justify-content:space-between;">
+          <h3>${escapeHtml(a.name)}</h3>
+          <button class="btn" onclick="closeAgentDrawer()">Close</button>
+        </div>
+        <div style="color:var(--muted)">${escapeHtml(a.role)} · ${escapeHtml(a.model)}</div>
+        <div style="margin-top:.6rem;"><span class="agent-status ${a.status}"></span>${a.status}</div>
+        <p>${escapeHtml(a.description)}</p>
+        <h4>Capabilities</h4>
+        <ul>${a.capabilities.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>
+        <h4>Recent Activity</h4>
+        <div>${(a.activity || []).slice().reverse().map(x => `<div class="feed-item">${escapeHtml(x)}</div>`).join('') || '<div style="color:var(--muted)">No activity yet</div>'}</div>
+        <h4>Performance Notes</h4>
+        <p>${escapeHtml(a.perfNotes || '')}</p>
+        <button class="btn primary" onclick="openTaskModal('${a.id}')">Send Task</button>
+      `;
+      drawer.classList.add('open');
+    };
+    window.closeAgentDrawer = () => document.getElementById('agentDrawer').classList.remove('open');
+
+    window.openTaskModal = (agentId) => {
+      activeAgentId = agentId;
+      const a = state.agents.find(x => x.id === agentId);
+      if (!a) return;
+      document.getElementById('modalAgentName').textContent = a.name;
+      document.getElementById('taskText').value = '';
+      document.getElementById('taskModal').classList.add('open');
+    };
+
+    function sendTaskToAgent() {
+      const txt = document.getElementById('taskText').value.trim();
+      if (!txt || !activeAgentId) return;
+      const a = state.agents.find(x => x.id === activeAgentId);
+      if (!a) return;
+      a.activity = a.activity || [];
+      a.activity.push(`[${nowStr()}] New task: ${txt}`);
+      a.lastActive = nowStr();
+      a.status = 'busy';
+      saveState(`Sent task to ${a.name}: ${txt}`);
+      closeModal();
+      renderAgents();
+      openAgent(a.id);
+    }
+
+    function closeModal() {
+      document.getElementById('taskModal').classList.remove('open');
+    }
+
+    // =============================
+    // Search filter
+    // =============================
+    function filterDashboard(q) {
+      if (!q) {
+        renderActivity();
+        return;
+      }
+      const filtered = state.activity.filter(a => a.text.toLowerCase().includes(q));
+      const el = document.getElementById('activityFeed');
+      el.innerHTML = filtered.map(i => `<div class="feed-item">${escapeHtml(i.text)}<div class="feed-time">${new Date(i.ts).toLocaleString()}</div></div>`).join('') || '<div style="color:var(--muted)">No match.</div>';
+    }
+
+    // =============================
+    // Server sync + weather + activity logging
+    // =============================
+    async function connectServer() {
+      try {
+        const [statusRes, dataRes, weatherRes] = await Promise.all([
+          fetch(`${SERVER_BASE}/mc/status`),
+          fetch(`${SERVER_BASE}/mc/data`),
+          fetch(`${SERVER_BASE}/mc/weather?city=Jakarta`)
+        ]);
+
+        if (!statusRes.ok || !dataRes.ok) throw new Error('status/data unavailable');
+
+        const status = await statusRes.json();
+        const remote = await dataRes.json();
+        if (remote && typeof remote === 'object') {
+          state = mergeState(state, remote);
+        }
+
+        if (weatherRes.ok) {
+          const weather = await weatherRes.json();
+          state.weather = { temp: weather.temperature ?? '--', condition: weather.condition ?? '--' };
+        }
+
+        state.server.online = status.connectionHealth === 'online';
+        state.server.lastSync = Date.now();
+        persistRawState();
+        renderAll();
+      } catch (err) {
+        state.server.online = false;
+        renderServerStatus();
+      }
+    }
+
+    function setupAutosync() {
+      setInterval(async () => {
+        await backupToServer();
+        await fetchWeather();
+      }, 5 * 60 * 1000);
+    }
+
+    async function backupToServer() {
+      try {
+        await fetch(`${SERVER_BASE}/mc/data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state)
+        });
+        state.server.online = true;
+        state.server.lastSync = Date.now();
+        renderServerStatus();
+      } catch {
+        state.server.online = false;
+        renderServerStatus();
+      }
+    }
+
+    async function fetchWeather() {
+      try {
+        const res = await fetch(`${SERVER_BASE}/mc/weather?city=Jakarta`);
+        if (!res.ok) throw new Error('weather failed');
+        const w = await res.json();
+        state.weather = { temp: w.temperature ?? '--', condition: w.condition ?? '--' };
+        renderWeather();
+      } catch {}
+    }
+
+    async function logServerActivity(text) {
+      try {
+        await fetch(`${SERVER_BASE}/mc/activity`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+      } catch {}
+    }
+
+    // =============================
+    // Storage helpers
+    // =============================
+    function saveState(activityText) {
+      if (activityText) {
+        state.activity.push({ ts: Date.now(), text: activityText });
+        logServerActivity(activityText);
+      }
+      persistRawState();
+      renderActivity();
+      renderServerStatus();
+    }
+
+    function persistRawState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return structuredClone(defaultState);
+        return mergeState(structuredClone(defaultState), JSON.parse(raw));
+      } catch {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function mergeState(local, remote) {
+      // localStorage stays primary; server fills gaps as backup layer.
+      return {
+        ...remote,
+        ...local,
+        projects: { ...(remote.projects || {}), ...(local.projects || {}) },
+        server: { ...(remote.server || {}), ...(local.server || {}) },
+        weather: { ...(remote.weather || {}), ...(local.weather || {}) },
+      };
+    }
+
+    // =============================
+    // Utilities
+    // =============================
+    function uid() { return Math.random().toString(36).slice(2, 10); }
+    function nowStr() { return new Date().toLocaleString(); }
+    function today() { return new Date().toISOString().slice(0,10); }
+    function sameDay(a, b) {
+      const d1 = new Date(a), d2 = new Date(b);
+      return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+    }
+    function escapeHtml(str='') { return String(str).replace(/[&<>'"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
+    function escapeAttr(str='') { return escapeHtml(str).replace(/"/g, '&quot;'); }
+  </script>
+</body>
+</html>
