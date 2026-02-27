@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mission Control — Ray</title>
+  <title>RayOS v2 — Mission Control</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -11,853 +11,740 @@
     :root {
       --bg: #050508;
       --panel: rgba(255,255,255,0.04);
-      --panel-strong: rgba(255,255,255,0.07);
       --border: rgba(255,255,255,0.06);
       --text: #eceef5;
       --muted: #9ca3b6;
-      --accent: #7c5cff;
-      --accent-soft: rgba(124,92,255,0.2);
+      --accent: #3B82F6;
+      --accent-soft: rgba(59,130,246,0.18);
       --ok: #22c55e;
       --warn: #f59e0b;
       --danger: #ef4444;
       --radius: 16px;
-      --shadow: 0 20px 50px rgba(0,0,0,.45);
-      --gap: 1rem;
     }
-
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: radial-gradient(circle at 20% -10%, #19112f 0, transparent 30%), var(--bg); color: var(--text); font-family: Inter, sans-serif; }
-    body { min-height: 100vh; }
-    .container { max-width: 1600px; margin: 0 auto; padding: 2.5rem; }
-
-    .glass {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-
-    .header {
-      position: sticky; top: 0; z-index: 40;
-      margin: 1rem 1rem 0;
-      padding: .9rem 1.1rem;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 1rem;
-    }
-    .brand { display: flex; gap: .8rem; align-items: center; font-weight: 800; letter-spacing: .2px; }
-    .logo { width: 32px; height: 32px; border-radius: 10px; background: linear-gradient(140deg, var(--accent), #00d5ff); box-shadow: 0 0 20px rgba(124,92,255,.5); }
-
-    .tabs { display: flex; gap: .35rem; flex-wrap: wrap; justify-content: center; }
-    .tab-btn {
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--muted);
-      padding: .55rem .8rem;
-      border-radius: 10px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: .22s ease;
-    }
-    .tab-btn:hover { color: #fff; background: rgba(255,255,255,.05); }
-    .tab-btn.active { color: #fff; background: var(--accent-soft); border-color: rgba(124,92,255,.35); }
-
-    .header-right { display: flex; justify-content: flex-end; gap: .7rem; align-items: center; }
-    .search {
-      width: 260px; max-width: 45vw;
-      border: 1px solid var(--border); background: rgba(0,0,0,.25);
-      color: var(--text); padding: .58rem .8rem; border-radius: 10px;
-      outline: none;
-    }
-    .status-wrap { display: flex; align-items: center; gap: .6rem; font-size: .86rem; color: var(--muted); }
-    .dot {
-      width: 10px; height: 10px; border-radius: 999px; background: var(--danger);
-      box-shadow: 0 0 16px rgba(239,68,68,.6);
-      animation: pulse 1.7s infinite;
-    }
-    .dot.online { background: var(--ok); box-shadow: 0 0 16px rgba(34,197,94,.65); }
-    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.2);opacity:.75;} }
-
-    .tab-panel { display: none; animation: fadeInUp .35s ease both; }
-    .tab-panel.active { display: block; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
-
-    .welcome { padding: 1rem 1.2rem; margin-bottom: 1rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .6rem; }
-
-    .grid { display: grid; gap: var(--gap); }
-    .metrics { grid-template-columns: repeat(4, minmax(220px,1fr)); margin-bottom: 1rem; }
-    .card { padding: 1rem; position: relative; overflow: hidden; }
-    .accent-top::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, var(--accent), #00d5ff);
-    }
-    .metric-value { font-size: 1.7rem; font-weight: 800; margin-top: .4rem; }
-    .trend { font-size: .82rem; color: var(--muted); margin-top: .2rem; }
-
-    .two-col { grid-template-columns: 1.2fr .8fr; }
-    .feed { max-height: 430px; overflow: auto; }
-    .feed-item { border: 1px solid var(--border); border-radius: 12px; padding: .7rem; margin-bottom: .6rem; background: rgba(255,255,255,.02); }
-    .feed-time { color: var(--muted); font-size: .8rem; margin-top: .25rem; }
-
-    .row { display: flex; gap: .6rem; align-items: center; }
-    input, textarea, select, button {
-      font-family: inherit;
-    }
-    .input, .textarea, .select {
-      width: 100%; background: rgba(0,0,0,.25); color: var(--text);
-      border: 1px solid var(--border); border-radius: 10px; padding: .6rem .7rem;
-    }
-    .btn {
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.04);
-      color: var(--text);
-      border-radius: 10px;
-      padding: .58rem .82rem;
-      cursor: pointer;
-      transition: .2s ease;
-    }
-    .btn:hover { transform: translateY(-1px); border-color: rgba(124,92,255,.35); background: var(--accent-soft); }
-    .btn.primary { background: linear-gradient(90deg, var(--accent), #5f8bff); border: none; }
-    .btn.danger { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4); }
-
-    .priority-list li { display: flex; gap: .6rem; align-items: center; padding: .5rem .35rem; border-bottom: 1px dashed var(--border); }
-
-    .kanban { grid-template-columns: repeat(3, minmax(270px,1fr)); align-items: start; }
-    .col h3 { margin-top: 0; }
-    .task { margin-bottom: .7rem; padding: .7rem; border: 1px solid var(--border); border-radius: 12px; background: rgba(255,255,255,.02); cursor: pointer; }
-    .badge { display: inline-block; padding: .2rem .5rem; border-radius: 999px; font-size: .72rem; margin-top: .4rem; }
-    .high { background: rgba(239,68,68,.2); color: #fda4af; }
-    .medium { background: rgba(245,158,11,.2); color: #fcd34d; }
-    .low { background: rgba(34,197,94,.2); color: #86efac; }
-
-    .phase { padding: 1rem; margin-bottom: .8rem; border-left: 3px solid var(--border); }
-    .phase.current { border-left-color: var(--accent); box-shadow: inset 0 0 0 1px rgba(124,92,255,.25), 0 0 30px rgba(124,92,255,.12); }
-    .phase ul { margin: .4rem 0 0 1.1rem; color: var(--muted); }
-
-    .notes-wrap textarea { min-height: 52vh; resize: vertical; line-height: 1.5; }
-
-    .agent-grid { grid-template-columns: repeat(4, minmax(220px,1fr)); }
-    .agent-card { padding: 1rem; cursor: pointer; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.02); }
-    .agent-status { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: .3rem; }
-    .online { background: var(--ok); }
-    .busy { background: var(--warn); }
-    .offline { background: #64748b; }
-
-    .drawer {
-      position: fixed; top: 0; right: -520px; width: 500px; max-width: 95vw; height: 100vh;
-      background: #0a0a12; border-left: 1px solid var(--border); z-index: 60;
-      transition: right .25s ease; padding: 1rem;
-      overflow: auto;
-    }
-    .drawer.open { right: 0; }
-
-    .modal {
-      position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 70; display: none;
-      align-items: center; justify-content: center; padding: 1rem;
-    }
-    .modal.open { display: flex; }
-    .modal-box { width: 620px; max-width: 100%; padding: 1rem; }
-
-    .decision-item { border: 1px solid var(--border); border-radius: 12px; padding: .75rem; margin-bottom: .6rem; background: rgba(255,255,255,.02); }
-
-    @media (max-width: 1200px) {
-      .metrics { grid-template-columns: repeat(2, minmax(220px,1fr)); }
-      .two-col { grid-template-columns: 1fr; }
-      .agent-grid { grid-template-columns: repeat(2, minmax(220px,1fr)); }
-      .header { grid-template-columns: 1fr; }
-      .header-right { justify-content: flex-start; }
-    }
-    @media (max-width: 760px) {
-      .container { padding: 1rem; }
-      .metrics, .kanban, .agent-grid { grid-template-columns: 1fr; }
-      .search { width: 100%; }
-    }
+    html,body { margin:0; background: radial-gradient(circle at 20% -10%, #0e1a31 0, transparent 32%), var(--bg); color:var(--text); font-family:Inter,sans-serif; }
+    .container { max-width:1400px; margin:0 auto; padding:1.2rem; }
+    .glass { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .header { position:sticky; top:0; z-index:50; margin:.8rem; padding:.8rem 1rem; display:grid; grid-template-columns:1fr auto 1fr; gap:.8rem; align-items:center; }
+    .brand { display:flex; gap:.6rem; align-items:center; font-weight:800; }
+    .logo { width:30px; height:30px; border-radius:10px; background: linear-gradient(135deg, var(--accent), #06b6d4); }
+    .tabs { display:flex; gap:.35rem; flex-wrap:wrap; justify-content:center; }
+    .tab-btn { border:1px solid transparent; background:transparent; color:var(--muted); padding:.48rem .72rem; border-radius:10px; font-weight:600; cursor:pointer; }
+    .tab-btn.active,.tab-btn:hover { color:#fff; background:var(--accent-soft); border-color:rgba(59,130,246,.35); }
+    .right { display:flex; justify-content:flex-end; align-items:center; gap:.7rem; flex-wrap:wrap; }
+    .search,.input,.select,.textarea { border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,.25); color:var(--text); padding:.56rem .7rem; }
+    .search { width:240px; max-width:45vw; }
+    .dot { width:10px; height:10px; border-radius:999px; background:var(--danger); box-shadow:0 0 16px rgba(239,68,68,.7); animation:pulse 1.6s infinite; }
+    .dot.online { background:var(--ok); box-shadow:0 0 16px rgba(34,197,94,.7); }
+    @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+    .status-wrap { display:flex; align-items:center; gap:.5rem; font-size:.86rem; color:var(--muted); }
+    .tab-panel { display:none; animation:fadeInUp .3s ease both; }
+    .tab-panel.active { display:block; }
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(14px)} to { opacity:1; transform:translateY(0)} }
+    .grid { display:grid; gap:.9rem; }
+    .metrics { grid-template-columns: repeat(4,minmax(200px,1fr)); }
+    .card { padding:1rem; }
+    .metric-value { font-size:1.5rem; font-weight:800; margin-top:.35rem; }
+    .muted { color:var(--muted); font-size:.88rem; }
+    .two-col { grid-template-columns:1fr 1fr; }
+    .feed { max-height:420px; overflow:auto; }
+    .feed-item { border:1px solid var(--border); border-radius:12px; padding:.65rem; margin-bottom:.55rem; background:rgba(255,255,255,.02); }
+    .btn { border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--text); border-radius:10px; padding:.5rem .72rem; cursor:pointer; }
+    .btn:hover { background:var(--accent-soft); border-color:rgba(59,130,246,.35); }
+    .btn.primary { background:linear-gradient(90deg, var(--accent), #60a5fa); border:none; }
+    .checklist-row { display:flex; gap:.5rem; align-items:center; margin-bottom:.45rem; }
+    .checklist-row .input { flex:1; }
+    .org-wrap { overflow-x:auto; padding:.5rem 0; }
+    .org-root,.org-row { display:flex; justify-content:center; gap:1rem; flex-wrap:nowrap; min-width:max-content; }
+    .org-connect { width:2px; height:20px; background:linear-gradient(180deg, rgba(59,130,246,.55), rgba(59,130,246,.1)); margin:0 auto; }
+    .org-split { height:2px; width:80%; margin:0 auto .8rem; background:linear-gradient(90deg, rgba(59,130,246,.15), rgba(59,130,246,.6), rgba(59,130,246,.15)); }
+    .org-node { width:180px; text-align:center; }
+    .node-circle { width:74px; height:74px; border-radius:50%; border:2px solid var(--border); margin:0 auto .4rem; position:relative; overflow:hidden; background:#111; }
+    .node-circle img { width:100%; height:100%; object-fit:cover; }
+    .node-circle .fallback { display:flex; align-items:center; justify-content:center; height:100%; color:#cbd5e1; font-weight:700; }
+    .status-dot { width:10px; height:10px; border-radius:999px; position:absolute; bottom:5px; right:6px; border:1px solid #000; }
+    .status-online { background:var(--ok); box-shadow:0 0 12px rgba(34,197,94,.6); }
+    .status-busy { background:var(--warn); box-shadow:0 0 12px rgba(245,158,11,.6); }
+    .status-offline { background:#64748b; }
+    .active-glow { box-shadow:0 0 20px rgba(59,130,246,.35); }
+    .division-col { width:220px; }
+    .agent-mini { margin-top:.55rem; border:1px solid var(--border); border-radius:12px; padding:.5rem; cursor:pointer; background:rgba(255,255,255,.02); }
+    .avatar-list img,.avatar-list .fallback { width:26px; height:26px; border-radius:50%; border:1px solid var(--border); }
+    .avatar-list { display:flex; gap:.2rem; margin-top:.4rem; }
+    .drawer { position:fixed; top:0; right:-520px; width:500px; max-width:95vw; height:100vh; z-index:70; transition:right .2s ease; background:#0a0a12; border-left:1px solid var(--border); padding:1rem; overflow:auto; }
+    .drawer.open { right:0; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.58); z-index:80; padding:1rem; }
+    .modal.open { display:flex; }
+    .modal-box { width:620px; max-width:100%; padding:1rem; }
+    .collapsible summary { cursor:pointer; font-weight:700; }
+    .sub-card { margin-top:.55rem; padding:.7rem; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.02); }
+    .release-card { padding:.9rem; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.02); margin-bottom:.65rem; }
+    .release-meta { display:flex; gap:.45rem; flex-wrap:wrap; margin:.45rem 0; }
+    .pill { font-size:.76rem; border:1px solid var(--border); border-radius:999px; padding:.22rem .5rem; color:#dbe6ff; background:rgba(59,130,246,.16); }
+    .feature-list { margin:.5rem 0 0 1rem; color:#cdd6ea; }
+    .action-row { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.6rem; }
+    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
   <header class="header glass">
-    <div class="brand"><div class="logo"></div><div>Mission Control · Ray</div></div>
-    <nav class="tabs" id="tabs"></nav>
-    <div class="header-right">
-      <input class="search" id="searchInput" placeholder="Search (Ctrl/Cmd + K)" />
-      <div id="weatherMini" class="status-wrap">🌤 --</div>
-      <div class="status-wrap">
-        <span class="dot" id="statusDot"></span>
-        <span id="serverState">Server: Offline</span>
-      </div>
+    <div class="brand"><div class="logo"></div><div>RayOS v2 · Mission Control</div></div>
+    <nav id="tabs" class="tabs"></nav>
+    <div class="right">
+      <input id="searchInput" class="search" placeholder="Search (Ctrl/Cmd + K)">
+      <div id="weatherMini" class="status-wrap">🌤 Jakarta · --°C · Unavailable</div>
+      <div class="status-wrap"><span id="statusDot" class="dot"></span><span id="serverState">Server: Offline</span></div>
     </div>
   </header>
 
   <main class="container">
     <section id="tab-dashboard" class="tab-panel active">
-      <div class="welcome glass">
-        <strong id="welcomeText">Good day, Boss Ray</strong>
-        <span id="clockText"></span>
-      </div>
       <div class="grid metrics" id="metricsGrid"></div>
-      <div class="grid two-col">
-        <div class="card glass">
-          <h3>Recent Activity</h3>
-          <div class="feed" id="activityFeed"></div>
-        </div>
+      <div class="grid two-col" style="margin-top:.9rem;">
+        <div class="card glass"><h3>Recent Activity</h3><div id="activityFeed" class="feed"></div></div>
         <div class="card glass">
           <h3>Top Priorities</h3>
-          <ul class="priority-list" id="priorityList"></ul>
-          <div class="row" style="margin-top:.7rem;">
-            <input class="input" id="newPriority" placeholder="Add new priority..." />
-            <button class="btn" id="addPriorityBtn">Add</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="tab-projects" class="tab-panel">
-      <div class="grid kanban" id="kanbanBoard"></div>
-    </section>
-
-    <section id="tab-timeline" class="tab-panel">
-      <div class="card glass" id="timelineWrap"></div>
-    </section>
-
-    <section id="tab-notes" class="tab-panel">
-      <div class="card glass notes-wrap">
-        <h3>Notes</h3>
-        <textarea id="notesArea" class="textarea" placeholder="Write markdown-style notes..."></textarea>
-        <div class="row" style="margin-top:.5rem; justify-content:space-between; color:var(--muted); font-size:.85rem;">
-          <span id="charCount">0 chars</span>
-          <span id="savedAt">Not saved yet</span>
+          <div id="priorityList"></div>
+          <div class="checklist-row"><input id="newPriority" class="input" placeholder="Add priority"><button id="addPriorityBtn" class="btn">Add</button></div>
         </div>
       </div>
     </section>
 
     <section id="tab-command" class="tab-panel">
-      <div class="grid agent-grid" id="agentGrid"></div>
-      <div class="card glass" style="margin-top:1rem;">
-        <h3>Executive Decisions</h3>
+      <div class="card glass">
+        <h3>👑 AI Command Center</h3>
+        <div class="org-wrap" id="orgChart"></div>
+      </div>
+      <div class="card glass" style="margin-top:.9rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
+          <h3>Executive Decisions</h3>
+          <button class="btn" id="addDecisionBtn">+ New Decision</button>
+        </div>
         <div id="decisionsWrap"></div>
+      </div>
+      <div class="card glass" style="margin-top:.9rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
+          <h3>🧬 Soul Optimizer</h3>
+          <button class="btn" id="openSoulBtn">Open Optimizer</button>
+        </div>
+        <div class="muted">Refine voice, boundaries, and behavior principles for SOUL.md with one-click optimization.</div>
+      </div>
+    </section>
+
+    <section id="tab-brain" class="tab-panel">
+      <div class="card glass">
+        <h3>🧠 Second Brain</h3>
+        <div id="brainWrap"></div>
+      </div>
+    </section>
+
+    <section id="tab-notes" class="tab-panel">
+      <div class="card glass">
+        <h3>📝 Notes</h3>
+        <textarea id="notesArea" class="textarea" rows="16" style="width:100%"></textarea>
+      </div>
+    </section>
+
+    <section id="tab-upgrades" class="tab-panel">
+      <div class="card glass">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
+          <h3>🚀 Upgrade Timeline</h3>
+          <button class="btn" id="copyUpgradeSummaryBtn">Copy latest upgrade summary</button>
+        </div>
+        <div class="muted">Transparent release log so you can verify what changed without digging through Git.</div>
+        <div id="upgradeFeed" style="margin-top:.8rem;"></div>
       </div>
     </section>
   </main>
 
-  <aside class="drawer" id="agentDrawer"></aside>
-
-  <div class="modal" id="taskModal">
-    <div class="modal-box glass">
-      <h3>Send Task to <span id="modalAgentName"></span></h3>
-      <textarea id="taskText" class="textarea" rows="5" placeholder="Describe the task..."></textarea>
-      <div class="row" style="justify-content:flex-end;margin-top:.8rem;">
-        <button class="btn" id="cancelTaskBtn">Cancel</button>
-        <button class="btn primary" id="sendTaskBtn">Send Task</button>
-      </div>
-    </div>
-  </div>
+  <aside id="agentDrawer" class="drawer"></aside>
+  <div id="taskModal" class="modal"><div class="modal-box glass"><h3>Send Task</h3><textarea id="taskText" class="textarea" rows="5" style="width:100%"></textarea><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.7rem;"><button class="btn" id="cancelTaskBtn">Cancel</button><button class="btn primary" id="sendTaskBtn">Send Task</button></div></div></div>
+  <div id="soulModal" class="modal"><div class="modal-box glass"><h3>Optimize SOUL.md</h3><textarea id="soulInput" class="textarea" rows="10" style="width:100%" placeholder="Paste current SOUL.md or your updated draft..."></textarea><div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:.7rem;"><button class="btn" id="cancelSoulBtn">Cancel</button><button class="btn primary" id="optimizeSoulBtn">Optimize</button></div><div id="soulOutput" class="sub-card" style="margin-top:.7rem; white-space:pre-wrap;"></div></div></div>
 
   <script>
-    // =============================
-    // Mission Control State + Config
-    // =============================
-    const STORAGE_KEY = 'mc_state_v1';
-    const SERVER_BASE = `${window.location.protocol}//${window.location.hostname}:8899`;
+    // -------- Storage keys --------
+    const KEYS = {
+      state: 'mc_state_v2',
+      agents: 'mc_agents',
+      decisions: 'mc_decisions',
+      brain: 'mc_brain',
+      activity: 'mc_activity'
+    };
+
+    const SERVER_BASE = `${location.protocol}//${location.hostname}:8899`;
     const TABS = [
       { id: 'dashboard', label: '📊 Dashboard' },
-      { id: 'projects', label: '📋 Projects' },
-      { id: 'timeline', label: '📅 Timeline' },
-      { id: 'notes', label: '📝 Notes' },
       { id: 'command', label: '🏢 Command Center' },
+      { id: 'brain', label: '🧠 Second Brain' },
+      { id: 'notes', label: '📝 Notes' },
+      { id: 'upgrades', label: '🚀 Upgrades' }
     ];
 
-    const timelineConfig = [
+    const DIVISIONS = [
+      { key: 'strategy', name: '🧠 Strategy Division' },
+      { key: 'operations', name: '⚙ Operations Division' },
+      { key: 'finance', name: '💰 Finance Division' },
+      { key: 'growth', name: '📈 Growth Division' },
+      { key: 'life', name: '🧘 Life Division' }
+    ];
+
+    const defaultState = { priorities: [], projects: { backlog: [], inProgress: [], done: [] }, notes: '', server: { online: false }, weather: { city: 'Jakarta', temp: '--', condition: 'Unavailable' } };
+    const defaultAgents = [
+      mkAgent('Chief Strategy Officer', 'Long-range positioning and decisive tradeoffs.', 'strategy'),
+      mkAgent('Operations Officer', 'Execution systems and delivery reliability.', 'operations'),
+      mkAgent('Finance Analyst', 'Cash, runway, and leverage discipline.', 'finance'),
+      mkAgent('Growth Hacker', 'Acquisition experiments and compounding loops.', 'growth'),
+      mkAgent('Life Architect', 'Energy, family cadence, and personal design.', 'life')
+    ];
+    const defaultBrain = {
+      food: { recipes: [], restaurants: [] },
+      travel: [], games: [], movies: [], careerGoals: [], books: [],
+      purchases: { work: [], home: [], wife: [] }
+    };
+
+    const RELEASES = [
       {
-        title: 'Foundation Sprint', range: 'Jan - Mar 2026', current: false,
-        description: 'Set operating system and personal execution rhythms.',
-        milestones: [
-          { text: 'Mission Control baseline deployed', done: true },
-          { text: 'Weekly review ritual stabilized', done: true },
-          { text: 'Decision journal active', done: false }
+        version: 'v2.4.0-nightly',
+        date: '2026-02-27',
+        theme: 'Command Center polish + visibility',
+        features: [
+          'Added dedicated Upgrades tab with release timeline and verification-friendly summaries',
+          'Copy-ready latest-upgrade summary button for quick audit/checkpointing',
+          'Improved Mission Control transparency so shipped changes are visible in-app'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' },
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
         ]
       },
       {
-        title: 'Scale Through Systems', range: 'Apr - Jul 2026', current: true,
-        description: 'Automate recurring operations and focus on high leverage bets.',
-        milestones: [
-          { text: 'Padel Vision MVP validation', done: false },
-          { text: 'Content pipeline automation', done: false },
-          { text: 'Agent command center fully integrated', done: true }
-        ]
-      },
-      {
-        title: 'Freedom Architecture', range: 'Aug - Dec 2026', current: false,
-        description: 'Build systems that run while asleep and reclaim quality time.',
-        milestones: [
-          { text: '2 income streams partially autonomous', done: false },
-          { text: 'Weekly family/travel blocks protected', done: false }
-        ]
+        version: 'v2.3.0',
+        date: '2026-02-24',
+        theme: 'Mission Control stabilization',
+        features: [
+          'Single-file mission control cockpit with org chart + decisions + brain modules',
+          'Server/weather status heartbeat and local persistence hardening',
+          'Task dispatch + activity feeds and SOUL optimizer flow'
+        ],
+        links: []
       }
     ];
 
-    const defaultState = {
-      goalDate: '2026-12-31',
-      priorities: [
-        { text: 'Ship one high-leverage action before noon', done: false },
-        { text: 'Review 1 insight from podcast/book and convert to action', done: false },
-        { text: 'Close today with tomorrow plan in Notes', done: false },
-      ],
-      projects: {
-        backlog: [
-          { id: uid(), title: 'Recipe Adventure System', desc: 'Track recipes to try and difficulty progression.', priority: 'low', createdAt: nowStr() },
-          { id: uid(), title: 'Travel Master List', desc: 'Build place ideas + budget + best timing.', priority: 'medium', createdAt: nowStr() }
-        ],
-        inProgress: [
-          { id: uid(), title: 'Padel Vision Validation', desc: 'Finalize fixtures + confidence reporting.', priority: 'high', createdAt: nowStr() }
-        ],
-        done: []
-      },
-      notes: '',
-      activity: [
-        { ts: Date.now(), text: 'Mission Control initialized.' }
-      ],
-      agents: [
-        {
-          id: uid(), name: 'Haro', role: 'Chief Operator', status: 'online', model: 'gpt-5.3-codex',
-          lastActive: nowStr(),
-          description: 'Coordinates priorities, execution cadence, and accountability loops.',
-          capabilities: ['Planning', 'Execution tracking', 'Strategic challenge', 'Documentation'],
-          perfNotes: 'Strong on system design and operational follow-through.',
-          activity: ['Initialized command center.']
-        },
-        {
-          id: uid(), name: 'Scout', role: 'Research Lead', status: 'busy', model: 'kimi-k2.5',
-          lastActive: nowStr(),
-          description: 'Collects current market intel, trends, and competitor movement.',
-          capabilities: ['Web research', 'Trend synthesis', 'Brief generation'],
-          perfNotes: 'Fast signal extraction; needs tighter source filtering on noisy topics.',
-          activity: ['Prepared trend snapshot for faceless content ideas.']
-        },
-        {
-          id: uid(), name: 'Forge', role: 'Build Engineer', status: 'online', model: 'gpt-5.3-codex',
-          lastActive: nowStr(),
-          description: 'Turns concepts into working prototypes and production-ready code.',
-          capabilities: ['Full-stack prototyping', 'Debugging', 'API integration'],
-          perfNotes: 'Excellent shipping velocity; monitor scope creep.',
-          activity: ['Stabilized dashboard server sync layer.']
-        },
-        {
-          id: uid(), name: 'Ledger', role: 'Finance & Ops Analyst', status: 'offline', model: 'llama3.2:3b',
-          lastActive: nowStr(),
-          description: 'Tracks business metrics, cashflow assumptions, and operational efficiency.',
-          capabilities: ['P&L notes', 'Unit economics', 'Ops checklists'],
-          perfNotes: 'Reliable with structure; needs fresher context input cadence.',
-          activity: ['No recent update.']
-        }
-      ],
-      decisions: [
-        {
-          date: today(),
-          question: 'What should be the primary execution metric?',
-          summary: 'Count of completed actions aligned with stated intent.',
-          consulted: ['Haro', 'Ledger']
-        },
-        {
-          date: today(),
-          question: 'Where to focus highest leverage this quarter?',
-          summary: 'Prioritize Padel Vision validation + system automation.',
-          consulted: ['Haro', 'Scout', 'Forge']
-        }
-      ],
-      server: { online: false, lastSync: null },
-      weather: { temp: '--', condition: '--' }
-    };
-
-    let state = loadState();
+    let state = load(KEYS.state, defaultState);
+    let agents = load(KEYS.agents, defaultAgents);
+    let decisions = load(KEYS.decisions, []);
+    let brain = load(KEYS.brain, defaultBrain);
+    let activity = load(KEYS.activity, [{ ts: Date.now(), type: 'init', text: 'RayOS v2 initialized.' }]);
+    state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
     let activeTab = 'dashboard';
     let activeAgentId = null;
 
-    // =============================
-    // Init
-    // =============================
     initUI();
     renderAll();
-    startClock();
-    connectServer();
-    setupAutosync();
+    checkServerStatus();
+    fetchWeather();
+    setInterval(checkServerStatus, 60 * 1000);
+    setInterval(fetchWeather, 15 * 60 * 1000);
+    setInterval(syncToServer, 5 * 60 * 1000);
+    window.addEventListener('beforeunload', syncOnUnload);
 
-    // =============================
-    // UI Setup
-    // =============================
-    function initUI() {
-      const tabsEl = document.getElementById('tabs');
-      tabsEl.innerHTML = TABS.map(t => `<button class="tab-btn ${t.id===activeTab?'active':''}" data-tab="${t.id}">${t.label}</button>`).join('');
-      tabsEl.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-tab]');
-        if (!btn) return;
-        activeTab = btn.dataset.tab;
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === activeTab));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.getElementById(`tab-${activeTab}`).classList.add('active');
-      });
-
-      document.getElementById('addPriorityBtn').onclick = addPriority;
-      document.getElementById('newPriority').addEventListener('keydown', (e) => { if (e.key === 'Enter') addPriority(); });
-
-      const notes = document.getElementById('notesArea');
-      notes.addEventListener('input', () => {
-        state.notes = notes.value;
-        saveState('Updated notes');
-        renderNotesMeta();
-      });
-
-      const search = document.getElementById('searchInput');
-      document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-          e.preventDefault();
-          search.focus();
-        }
-      });
-
-      search.addEventListener('input', () => {
-        const q = search.value.trim().toLowerCase();
-        filterDashboard(q);
-      });
-
-      document.getElementById('cancelTaskBtn').onclick = closeModal;
-      document.getElementById('sendTaskBtn').onclick = sendTaskToAgent;
-      document.getElementById('taskModal').addEventListener('click', (e) => { if (e.target.id === 'taskModal') closeModal(); });
-    }
-
-    // =============================
-    // Renderers
-    // =============================
-    function renderAll() {
-      renderWelcome();
-      renderMetrics();
-      renderActivity();
-      renderPriorities();
-      renderKanban();
-      renderTimeline();
-      renderNotes();
-      renderAgents();
-      renderDecisions();
-      renderServerStatus();
-      renderWeather();
-    }
-
-    function renderWelcome() {
-      const h = new Date().getHours();
-      const greeting = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
-      document.getElementById('welcomeText').textContent = `Good ${greeting}, Boss Ray`;
-    }
-
-    function startClock() {
-      const tick = () => {
-        document.getElementById('clockText').textContent = new Date().toLocaleString();
-      };
-      tick();
-      setInterval(tick, 1000);
-    }
-
-    function renderMetrics() {
-      const completed = state.priorities.filter(p => p.done).length;
-      const total = state.priorities.length || 1;
-      const progress = Math.round((completed / total) * 100);
-      const activeProjects = state.projects.backlog.length + state.projects.inProgress.length;
-      const tasksToday = state.activity.filter(a => sameDay(a.ts, Date.now())).length;
-      const daysGoal = Math.max(0, Math.ceil((new Date(state.goalDate) - Date.now()) / 86400000));
-
-      const cards = [
-        { icon: '🎯', label: 'Progress', value: `${progress}%`, trend: `${completed}/${total} top priorities complete` },
-        { icon: '🚀', label: 'Active Projects', value: activeProjects, trend: `${state.projects.inProgress.length} currently in progress` },
-        { icon: '✅', label: 'Tasks Today', value: tasksToday, trend: `Recent execution count today` },
-        { icon: '⏳', label: 'Days to Goal', value: daysGoal, trend: `Target date ${state.goalDate}` },
-      ];
-
-      document.getElementById('metricsGrid').innerHTML = cards.map(c => `
-        <div class="card glass accent-top">
-          <div>${c.icon} <span style="color:var(--muted)">${c.label}</span></div>
-          <div class="metric-value">${c.value}</div>
-          <div class="trend">${c.trend}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderActivity() {
-      const el = document.getElementById('activityFeed');
-      const list = [...state.activity].sort((a,b) => b.ts - a.ts).slice(0, 200);
-      el.innerHTML = list.map(i => `
-        <div class="feed-item">
-          <div>${escapeHtml(i.text)}</div>
-          <div class="feed-time">${new Date(i.ts).toLocaleString()}</div>
-        </div>
-      `).join('') || '<div style="color:var(--muted)">No activity yet.</div>';
-    }
-
-    function renderPriorities() {
-      const ul = document.getElementById('priorityList');
-      ul.innerHTML = state.priorities.map((p, idx) => `
-        <li>
-          <input type="checkbox" ${p.done ? 'checked' : ''} onchange="togglePriority(${idx})" />
-          <input class="input" value="${escapeAttr(p.text)}" oninput="editPriority(${idx}, this.value)" />
-          <button class="btn danger" onclick="deletePriority(${idx})">✕</button>
-        </li>
-      `).join('');
-    }
-
-    function renderKanban() {
-      const columns = [
-        { key: 'backlog', title: 'Backlog' },
-        { key: 'inProgress', title: 'In Progress' },
-        { key: 'done', title: 'Done' },
-      ];
-      const board = document.getElementById('kanbanBoard');
-      board.innerHTML = columns.map(col => `
-        <div class="card glass col">
-          <div class="row" style="justify-content:space-between;">
-            <h3>${col.title}</h3>
-            <button class="btn" onclick="addTask('${col.key}')">+ Task</button>
-          </div>
-          ${(state.projects[col.key] || []).map(t => `
-            <div class="task" onclick="editTask('${col.key}','${t.id}')">
-              <strong>${escapeHtml(t.title)}</strong>
-              <div style="color:var(--muted); margin-top:.25rem;">${escapeHtml((t.desc || '').slice(0, 100))}</div>
-              <div class="badge ${t.priority}">${t.priority.toUpperCase()}</div>
-              <div class="feed-time">${t.createdAt}</div>
-            </div>
-          `).join('')}
-        </div>
-      `).join('');
-    }
-
-    function renderTimeline() {
-      const wrap = document.getElementById('timelineWrap');
-      wrap.innerHTML = '<h3>Roadmap</h3>' + timelineConfig.map(p => `
-        <div class="phase ${p.current ? 'current' : ''}">
-          <div class="row" style="justify-content:space-between;">
-            <strong>${p.title}</strong><span style="color:var(--muted)">${p.range}</span>
-          </div>
-          <div style="margin-top:.35rem;">${p.description}</div>
-          <ul>${p.milestones.map(m => `<li>${m.done ? '✅' : '⬜'} ${m.text}</li>`).join('')}</ul>
-        </div>
-      `).join('');
-    }
-
-    function renderNotes() {
-      const notes = document.getElementById('notesArea');
-      notes.value = state.notes || '';
-      renderNotesMeta();
-    }
-
-    function renderNotesMeta() {
-      const txt = state.notes || '';
-      document.getElementById('charCount').textContent = `${txt.length} chars`;
-      document.getElementById('savedAt').textContent = `Last saved: ${new Date().toLocaleTimeString()}`;
-    }
-
-    function renderAgents() {
-      const grid = document.getElementById('agentGrid');
-      grid.innerHTML = state.agents.map(a => `
-        <div class="agent-card" onclick="openAgent('${a.id}')">
-          <div class="row" style="justify-content:space-between; align-items:flex-start;">
-            <div>
-              <strong>${escapeHtml(a.name)}</strong>
-              <div style="color:var(--muted)">${escapeHtml(a.role)}</div>
-            </div>
-            <span><span class="agent-status ${a.status}"></span>${a.status}</span>
-          </div>
-          <div style="margin-top:.5rem;color:var(--muted)">Model: ${escapeHtml(a.model)}</div>
-          <div class="feed-time">Last active: ${escapeHtml(a.lastActive)}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderDecisions() {
-      const wrap = document.getElementById('decisionsWrap');
-      wrap.innerHTML = state.decisions.map(d => `
-        <div class="decision-item">
-          <div class="feed-time">${d.date}</div>
-          <strong>${escapeHtml(d.question)}</strong>
-          <div style="margin-top:.3rem;">${escapeHtml(d.summary)}</div>
-          <div class="feed-time">Consulted: ${(d.consulted || []).map(escapeHtml).join(', ')}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderServerStatus() {
-      const dot = document.getElementById('statusDot');
-      dot.classList.toggle('online', !!state.server.online);
-      document.getElementById('serverState').textContent = `Server: ${state.server.online ? 'Online' : 'Offline'}`;
-    }
-
-    function renderWeather() {
-      const w = state.weather || { temp: '--', condition: '--' };
-      document.getElementById('weatherMini').textContent = `🌤 ${w.temp}°C · ${w.condition}`;
-    }
-
-    // =============================
-    // Priority actions
-    // =============================
-    function addPriority() {
-      const i = document.getElementById('newPriority');
-      const v = i.value.trim();
-      if (!v) return;
-      state.priorities.push({ text: v, done: false });
-      i.value = '';
-      saveState(`Added priority: ${v}`);
-      renderPriorities();
-      renderMetrics();
-    }
-    window.togglePriority = (idx) => {
-      state.priorities[idx].done = !state.priorities[idx].done;
-      saveState(`Updated priority status: ${state.priorities[idx].text}`);
-      renderPriorities();
-      renderMetrics();
-    };
-    window.editPriority = (idx, val) => {
-      state.priorities[idx].text = val;
-      saveState('Edited priority');
-    };
-    window.deletePriority = (idx) => {
-      const removed = state.priorities[idx]?.text || 'priority';
-      state.priorities.splice(idx, 1);
-      saveState(`Deleted priority: ${removed}`);
-      renderPriorities();
-      renderMetrics();
-    };
-
-    // =============================
-    // Kanban actions
-    // =============================
-    window.addTask = (col) => {
-      const title = prompt('Task title?');
-      if (!title) return;
-      const desc = prompt('Task description?') || '';
-      const priority = (prompt('Priority: high / medium / low', 'medium') || 'medium').toLowerCase();
-      state.projects[col].push({ id: uid(), title, desc, priority: ['high','medium','low'].includes(priority) ? priority : 'medium', createdAt: nowStr() });
-      saveState(`Added task to ${col}: ${title}`);
-      renderKanban();
-      renderMetrics();
-    };
-
-    window.editTask = (col, id) => {
-      const item = state.projects[col].find(t => t.id === id);
-      if (!item) return;
-      const title = prompt('Edit title', item.title);
-      if (title === null) return;
-      const desc = prompt('Edit description', item.desc);
-      if (desc === null) return;
-      const priority = (prompt('Priority: high / medium / low', item.priority) || item.priority).toLowerCase();
-      const action = prompt('Type "delete" to remove, or press OK to save.', 'save');
-      if (action === null) return;
-      if (action.toLowerCase() === 'delete') {
-        state.projects[col] = state.projects[col].filter(t => t.id !== id);
-        saveState(`Deleted task: ${item.title}`);
-      } else {
-        item.title = title;
-        item.desc = desc;
-        item.priority = ['high','medium','low'].includes(priority) ? priority : item.priority;
-        saveState(`Edited task: ${item.title}`);
-      }
-      renderKanban();
-      renderMetrics();
-    };
-
-    // =============================
-    // Agent drawer + modal
-    // =============================
-    window.openAgent = (id) => {
-      activeAgentId = id;
-      const a = state.agents.find(x => x.id === id);
-      if (!a) return;
-      const drawer = document.getElementById('agentDrawer');
-      drawer.innerHTML = `
-        <div class="row" style="justify-content:space-between;">
-          <h3>${escapeHtml(a.name)}</h3>
-          <button class="btn" onclick="closeAgentDrawer()">Close</button>
-        </div>
-        <div style="color:var(--muted)">${escapeHtml(a.role)} · ${escapeHtml(a.model)}</div>
-        <div style="margin-top:.6rem;"><span class="agent-status ${a.status}"></span>${a.status}</div>
-        <p>${escapeHtml(a.description)}</p>
-        <h4>Capabilities</h4>
-        <ul>${a.capabilities.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>
-        <h4>Recent Activity</h4>
-        <div>${(a.activity || []).slice().reverse().map(x => `<div class="feed-item">${escapeHtml(x)}</div>`).join('') || '<div style="color:var(--muted)">No activity yet</div>'}</div>
-        <h4>Performance Notes</h4>
-        <p>${escapeHtml(a.perfNotes || '')}</p>
-        <button class="btn primary" onclick="openTaskModal('${a.id}')">Send Task</button>
-      `;
-      drawer.classList.add('open');
-    };
-    window.closeAgentDrawer = () => document.getElementById('agentDrawer').classList.remove('open');
-
-    window.openTaskModal = (agentId) => {
-      activeAgentId = agentId;
-      const a = state.agents.find(x => x.id === agentId);
-      if (!a) return;
-      document.getElementById('modalAgentName').textContent = a.name;
-      document.getElementById('taskText').value = '';
-      document.getElementById('taskModal').classList.add('open');
-    };
-
-    function sendTaskToAgent() {
-      const txt = document.getElementById('taskText').value.trim();
-      if (!txt || !activeAgentId) return;
-      const a = state.agents.find(x => x.id === activeAgentId);
-      if (!a) return;
-      a.activity = a.activity || [];
-      a.activity.push(`[${nowStr()}] New task: ${txt}`);
-      a.lastActive = nowStr();
-      a.status = 'busy';
-      saveState(`Sent task to ${a.name}: ${txt}`);
-      closeModal();
-      renderAgents();
-      openAgent(a.id);
-    }
-
-    function closeModal() {
-      document.getElementById('taskModal').classList.remove('open');
-    }
-
-    // =============================
-    // Search filter
-    // =============================
-    function filterDashboard(q) {
-      if (!q) {
-        renderActivity();
-        return;
-      }
-      const filtered = state.activity.filter(a => a.text.toLowerCase().includes(q));
-      const el = document.getElementById('activityFeed');
-      el.innerHTML = filtered.map(i => `<div class="feed-item">${escapeHtml(i.text)}<div class="feed-time">${new Date(i.ts).toLocaleString()}</div></div>`).join('') || '<div style="color:var(--muted)">No match.</div>';
-    }
-
-    // =============================
-    // Server sync + weather + activity logging
-    // =============================
-    async function connectServer() {
+    // -------- Networking: timeout + retry --------
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 3000) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
-        const [statusRes, dataRes, weatherRes] = await Promise.all([
-          fetch(`${SERVER_BASE}/mc/status`),
-          fetch(`${SERVER_BASE}/mc/data`),
-          fetch(`${SERVER_BASE}/mc/weather?city=Jakarta`)
-        ]);
-
-        if (!statusRes.ok || !dataRes.ok) throw new Error('status/data unavailable');
-
-        const status = await statusRes.json();
-        const remote = await dataRes.json();
-        if (remote && typeof remote === 'object') {
-          state = mergeState(state, remote);
-        }
-
-        if (weatherRes.ok) {
-          const weather = await weatherRes.json();
-          state.weather = { temp: weather.temperature ?? '--', condition: weather.condition ?? '--' };
-        }
-
-        state.server.online = status.connectionHealth === 'online';
-        state.server.lastSync = Date.now();
-        persistRawState();
-        renderAll();
-      } catch (err) {
-        state.server.online = false;
-        renderServerStatus();
-      }
+        return await fetch(url, { ...options, signal: ctrl.signal });
+      } finally { clearTimeout(timer); }
     }
 
-    function setupAutosync() {
-      setInterval(async () => {
-        await backupToServer();
-        await fetchWeather();
-      }, 5 * 60 * 1000);
-    }
-
-    async function backupToServer() {
+    async function checkServerStatus() {
+      const tryStatus = async () => fetchWithTimeout(`${SERVER_BASE}/mc/status`);
       try {
-        await fetch(`${SERVER_BASE}/mc/data`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state)
-        });
+        let res;
+        try { res = await tryStatus(); } catch { res = await tryStatus(); }
+        if (!res.ok) throw new Error('status failed');
         state.server.online = true;
-        state.server.lastSync = Date.now();
-        renderServerStatus();
       } catch {
         state.server.online = false;
-        renderServerStatus();
       }
+      save(KEYS.state, state);
+      renderServerAndWeather();
     }
 
     async function fetchWeather() {
       try {
-        const res = await fetch(`${SERVER_BASE}/mc/weather?city=Jakarta`);
+        const res = await fetchWithTimeout(`${SERVER_BASE}/mc/weather?city=Jakarta`);
         if (!res.ok) throw new Error('weather failed');
         const w = await res.json();
-        state.weather = { temp: w.temperature ?? '--', condition: w.condition ?? '--' };
-        renderWeather();
-      } catch {}
+        state.weather = { city: 'Jakarta', temp: w.temperature ?? '--', condition: w.condition ?? 'Unavailable' };
+      } catch {
+        state.weather = { city: 'Jakarta', temp: '--', condition: 'Unavailable' };
+      }
+      save(KEYS.state, state);
+      renderServerAndWeather();
     }
 
-    async function logServerActivity(text) {
+    // -------- Activity logging (debounced, event-only) --------
+    let activityTimer = null;
+    let pendingActivity = [];
+    function logActivity(type, text) {
+      pendingActivity.push({ ts: Date.now(), type, text });
+      clearTimeout(activityTimer);
+      activityTimer = setTimeout(() => {
+        activity.push(...pendingActivity);
+        pendingActivity = [];
+        save(KEYS.activity, activity.slice(-300));
+        renderActivity();
+      }, 500);
+    }
+
+    async function syncToServer() {
       try {
-        await fetch(`${SERVER_BASE}/mc/activity`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
+        await fetchWithTimeout(`${SERVER_BASE}/mc/data`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ state, agents, decisions, brain, activity })
         });
       } catch {}
-    }
-
-    // =============================
-    // Storage helpers
-    // =============================
-    function saveState(activityText) {
-      if (activityText) {
-        state.activity.push({ ts: Date.now(), text: activityText });
-        logServerActivity(activityText);
+      if (state.server.online) {
+        const unsent = activity.slice(-20);
+        for (const item of unsent) {
+          try {
+            await fetchWithTimeout(`${SERVER_BASE}/mc/activity`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: item.text })
+            });
+          } catch { break; }
+        }
       }
-      persistRawState();
-      renderActivity();
-      renderServerStatus();
     }
 
-    function persistRawState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function loadState() {
+    function syncOnUnload() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return structuredClone(defaultState);
-        return mergeState(structuredClone(defaultState), JSON.parse(raw));
+        navigator.sendBeacon(`${SERVER_BASE}/mc/data`, JSON.stringify({ state, agents, decisions, brain, activity }));
+      } catch {}
+    }
+
+    // -------- UI init --------
+    function initUI() {
+      const tabs = document.getElementById('tabs');
+      tabs.innerHTML = TABS.map(t => `<button data-tab="${t.id}" class="tab-btn ${t.id===activeTab?'active':''}">${t.label}</button>`).join('');
+      tabs.onclick = e => {
+        const b = e.target.closest('[data-tab]'); if (!b) return;
+        activeTab = b.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
+        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+        document.getElementById(`tab-${activeTab}`).classList.add('active');
+      };
+
+      document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+      });
+      document.getElementById('searchInput').addEventListener('input', renderActivity);
+      document.getElementById('addPriorityBtn').onclick = addPriority;
+      document.getElementById('newPriority').addEventListener('keydown', e => { if (e.key === 'Enter') addPriority(); });
+      document.getElementById('notesArea').addEventListener('input', (e) => { state.notes = e.target.value; save(KEYS.state, state); });
+      document.getElementById('addDecisionBtn').onclick = addDecision;
+      document.getElementById('cancelTaskBtn').onclick = closeTaskModal;
+      document.getElementById('sendTaskBtn').onclick = sendTaskToAgent;
+      document.getElementById('taskModal').onclick = e => { if (e.target.id === 'taskModal') closeTaskModal(); };
+      document.getElementById('openSoulBtn').onclick = () => {
+        document.getElementById('soulInput').value = load('mc_soul', '');
+        document.getElementById('soulOutput').textContent = '';
+        document.getElementById('soulModal').classList.add('open');
+      };
+      document.getElementById('cancelSoulBtn').onclick = () => document.getElementById('soulModal').classList.remove('open');
+      document.getElementById('optimizeSoulBtn').onclick = optimizeSoulText;
+      document.getElementById('soulModal').onclick = e => { if (e.target.id === 'soulModal') document.getElementById('soulModal').classList.remove('open'); };
+      document.getElementById('copyUpgradeSummaryBtn').onclick = copyLatestUpgrade;
+    }
+
+    function renderAll() {
+      renderServerAndWeather();
+      renderMetrics();
+      renderActivity();
+      renderPriorities();
+      renderOrgChart();
+      renderDecisions();
+      renderBrain();
+      renderUpgrades();
+      document.getElementById('notesArea').value = state.notes || '';
+    }
+
+    function renderUpgrades() {
+      const wrap = document.getElementById('upgradeFeed');
+      wrap.innerHTML = RELEASES.map((r, idx) => {
+        const links = (r.links || []).map(l => `<button class="btn" data-jump="${esc(l.href)}">${esc(l.label)}</button>`).join(' ');
+        return `<article class="release-card ${idx === 0 ? 'active-glow' : ''}">
+          <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:center;flex-wrap:wrap;">
+            <strong>${esc(r.version)} · ${esc(r.theme)}</strong>
+            <span class="pill">${esc(r.date)}</span>
+          </div>
+          <div class="release-meta"><span class="pill">Mission Control</span><span class="pill">Dashboard</span><span class="pill">Verified Log</span></div>
+          <ul class="feature-list">${(r.features || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+          ${links ? `<div class="action-row">${links}</div>` : ''}
+        </article>`;
+      }).join('');
+      wrap.querySelectorAll('[data-jump]').forEach(btn => {
+        btn.onclick = () => {
+          const target = btn.getAttribute('data-jump') || '';
+          const tabId = target.replace('#tab-', '');
+          if (tabId && TABS.some(t => t.id === tabId)) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
+            document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+            document.getElementById(`tab-${activeTab}`).classList.add('active');
+          }
+        };
+      });
+    }
+
+    async function copyLatestUpgrade() {
+      const latest = RELEASES[0];
+      const text = `${latest.version} (${latest.date}) — ${latest.theme}\n- ${latest.features.join('\n- ')}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        logActivity('upgrade_summary_copied', `Copied latest upgrade summary (${latest.version}).`);
+        renderActivity();
       } catch {
-        return structuredClone(defaultState);
+        alert('Could not copy automatically.');
       }
     }
 
-    function mergeState(local, remote) {
-      // localStorage stays primary; server fills gaps as backup layer.
+    function renderServerAndWeather() {
+      document.getElementById('statusDot').classList.toggle('online', !!state.server.online);
+      document.getElementById('serverState').textContent = `Server: ${state.server.online ? 'Online' : 'Offline'}`;
+      const w = state.weather || { city: 'Jakarta', temp: '--', condition: 'Unavailable' };
+      document.getElementById('weatherMini').textContent = `🌤 ${w.city} · ${w.temp}°C · ${w.condition}`;
+    }
+
+    function renderMetrics() {
+      const declared = state.priorities.filter(p => !!p.declaredAt).length;
+      const completed = state.priorities.filter(p => !!p.completedAt).length;
+      const executionRate = declared ? Math.round((completed / declared) * 100) : 0;
+      const allInsights = brain.books.flatMap(b => b.insights || []);
+      const converted = allInsights.filter(i => i.applied).length;
+      const insightRate = allInsights.length ? Math.round((converted / allInsights.length) * 100) : 0;
+      const activeAgents = agents.filter(a => a.status !== 'offline').length;
+      const weekStart = Date.now() - (7 * 86400000);
+      const weeklyCompleted = activity.filter(a => a.ts >= weekStart && (a.type === 'task_completed' || a.type === 'agent_task_sent')).length;
+
+      const cards = [
+        { label: 'Execution Rate', value: `${executionRate}%`, sub: `${completed}/${declared || 0} completed` },
+        { label: 'Insight Conversion Rate', value: `${insightRate}%`, sub: `${converted}/${allInsights.length} insights converted` },
+        { label: 'Active Agents', value: activeAgents, sub: `${agents.length} total agents` },
+        { label: 'Weekly Actions Completed', value: weeklyCompleted, sub: 'Last 7 days' }
+      ];
+      document.getElementById('metricsGrid').innerHTML = cards.map(c => `<div class="card glass"><div class="muted">${c.label}</div><div class="metric-value">${c.value}</div><div class="muted">${c.sub}</div></div>`).join('');
+    }
+
+    function renderActivity() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const list = [...activity].sort((a,b)=>b.ts-a.ts).filter(x => !q || x.text.toLowerCase().includes(q)).slice(0,120);
+      document.getElementById('activityFeed').innerHTML = list.map(a => `<div class="feed-item">${esc(a.text)}<div class="muted">${new Date(a.ts).toLocaleString()}</div></div>`).join('') || '<div class="muted">No activity.</div>';
+    }
+
+    function renderPriorities() {
+      const wrap = document.getElementById('priorityList');
+      wrap.innerHTML = state.priorities.map((p,i)=>`<div class="checklist-row"><input type="checkbox" ${p.done?'checked':''} onchange="togglePriority(${i})"><input class="input" value="${attr(p.text)}" oninput="editPriority(${i},this.value)"><button class="btn" onclick="removePriority(${i})">✕</button></div>`).join('');
+    }
+
+    function renderOrgChart() {
+      const root = `<div class="org-root"><div class="org-node"><div class="node-circle active-glow"><div class="fallback">👑</div><span class="status-dot status-online"></span></div><strong>Ray</strong><div class="muted">Founder / Commander</div></div></div>`;
+      const row = DIVISIONS.map(div => {
+        const group = agents.filter(a => a.division === div.key);
+        return `<div class="division-col"><div class="org-node"><div class="node-circle"><div class="fallback">${div.name.split(' ')[0]}</div></div><strong>${div.name}</strong></div>${group.map(a => miniAgent(a)).join('')}</div>`;
+      }).join('');
+      document.getElementById('orgChart').innerHTML = root + `<div class="org-connect"></div><div class="org-split"></div><div class="org-row">${row}</div>`;
+    }
+
+    function miniAgent(a) {
+      const initials = a.name.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
+      const photo = a.photo ? `<img src="${attr(a.photo)}">` : `<div class="fallback">${initials}</div>`;
+      return `<div class="agent-mini" onclick="openAgent('${a.id}')"><div class="row" style="display:flex;gap:.5rem;align-items:center;"><div class="node-circle ${a.status!=='offline'?'active-glow':''}" style="width:44px;height:44px;margin:0;">${photo}<span class="status-dot status-${a.status}"></span></div><div><div>${esc(a.name)}</div><div class="muted">${esc(a.role)}</div></div></div></div>`;
+    }
+
+    function renderDecisions() {
+      const sorted = [...decisions].sort((a,b) => new Date(b.date) - new Date(a.date));
+      document.getElementById('decisionsWrap').innerHTML = sorted.map(d => `<div class="sub-card"><div class="muted">${d.date}</div><strong>${esc(d.question)}</strong><div style="margin-top:.3rem;">${esc(d.summary)}</div><div class="avatar-list">${(d.agentsConsulted||[]).map(aid=>avatarByAgentId(aid)).join('')}</div></div>`).join('') || '<div class="muted">No decisions yet.</div>';
+    }
+
+    function avatarByAgentId(id) {
+      const a = agents.find(x=>x.id===id); if (!a) return '';
+      if (a.photo) return `<img src="${attr(a.photo)}" title="${attr(a.name)}">`;
+      const initials = a.name.split(' ').map(x=>x[0]).slice(0,2).join('').join('');
+      return `<div class="fallback" title="${attr(a.name)}" style="display:flex;align-items:center;justify-content:center;font-size:.72rem;">${esc(initials)}</div>`;
+    }
+
+    function renderBrain() {
+      const w = document.getElementById('brainWrap');
+      w.innerHTML = `
+      ${brainSection('🍽 Food', [
+        checklist('Recipes', brain.food.recipes, ['title','category','status'], ['cuisine|drink','want|tried'], (v)=>brain.food.recipes.push(v), 'brain_item_added'),
+        checklist('Restaurants', brain.food.restaurants, ['title','location','status'], ['-','want|visited'], (v)=>brain.food.restaurants.push(v), 'brain_item_added')
+      ])}
+      ${brainSection('✈ Travel', [checklist('Places', brain.travel, ['place','country','status'], ['-','dream|planned|visited'], (v)=>brain.travel.push(v), 'brain_item_added')])}
+      ${brainSection('🎮 Games', [checklist('Games', brain.games, ['title','platform','status'], ['-','wishlist|playing|completed'], (v)=>brain.games.push(v), 'brain_item_added')])}
+      ${brainSection('🎬 Movies', [checklist('Movies', brain.movies, ['title','genre','status'], ['-','wishlist|watched'], (v)=>brain.movies.push(v), 'brain_item_added')])}
+      ${brainSection('💼 Career Goals', [checklist('Goals', brain.careerGoals, ['goal','targetDate','progress'], ['-','-'], (v)=>brain.careerGoals.push(v), 'brain_item_added')])}
+      ${brainSection('📚 Books', [checklist('Books', brain.books, ['title','author','status'], ['-','reading|completed'], (v)=>brain.books.push({ ...v, insights: [] }), 'brain_item_added', true)])}
+      ${brainSection('🛒 Purchases', [
+        checklist('Work', brain.purchases.work, ['item','priority','purchased'], ['-','low|medium|high'], (v)=>brain.purchases.work.push(v), 'brain_item_added'),
+        checklist('Home', brain.purchases.home, ['item','priority','purchased'], ['-','low|medium|high'], (v)=>brain.purchases.home.push(v), 'brain_item_added'),
+        checklist('Wife', brain.purchases.wife, ['item','priority','purchased'], ['-','low|medium|high'], (v)=>brain.purchases.wife.push(v), 'brain_item_added')
+      ])}`;
+      bindBrainButtons();
+    }
+
+    function brainSection(title, blocks) {
+      return `<details class="collapsible sub-card" open><summary>${title}</summary><div>${blocks.join('')}</div></details>`;
+    }
+
+    function checklist(title, arr, fields, hints, pushFn, logType, booksMode = false) {
+      const key = btoa(title).replace(/=/g,'');
+      const rows = arr.map((item, idx) => {
+        const primary = brainPrimaryField(item);
+        const statusSel = brainStatusSelect(key, idx, item);
+        const insights = booksMode ? ((item.insights || []).map((ins, iIdx) => `<div class="checklist-row" style="margin-left:1.3rem;"><input type="checkbox" ${ins.applied ? 'checked' : ''} onclick="toggleInsight(${idx},${iIdx})"><span style="flex:1">${esc(ins.text)}</span></div>`).join('') || '<div class="muted" style="margin-left:1.3rem;">No insights.</div>') : '';
+        return `<div><div class="checklist-row"><input type="checkbox" ${isCheckedBrainItem(item)?'checked':''} onclick="toggleBrain('${key}',${idx})"><input class="input" style="flex:1" value="${attr(item[primary] || '')}" oninput="editBrainField('${key}',${idx},'${primary}',this.value)">${statusSel}<button class="btn" onclick="removeBrain('${key}',${idx})">✕</button>${booksMode?`<button class="btn" onclick="addInsight(${idx})">+ Insight</button>`:''}</div>${insights}</div>`;
+      }).join('') || '<div class="muted">No items.</div>';
+      return `<div class="sub-card"><strong>${title}</strong>${rows}<div class="checklist-row"><input class="input" data-brain-input="${key}" placeholder="Add ${title}..."><button class="btn" data-brain-add="${key}">+ Add</button></div></div>`;
+    }
+
+    function bindBrainButtons() {
+      document.querySelectorAll('[data-brain-add]').forEach(btn => {
+        btn.onclick = () => {
+          const title = atob(btn.dataset.brainAdd);
+          const input = document.querySelector(`[data-brain-input="${btn.dataset.brainAdd}"]`);
+          const raw = (input?.value || '').trim();
+          if (!raw) return;
+          if (title === 'Recipes') brain.food.recipes.push({ title: raw, category: 'cuisine', status: 'want' });
+          else if (title === 'Restaurants') brain.food.restaurants.push({ title: raw, location: '-', status: 'want' });
+          else if (title === 'Places') brain.travel.push({ place: raw, country: '-', status: 'dream' });
+          else if (title === 'Games') brain.games.push({ title: raw, platform: '-', status: 'wishlist' });
+          else if (title === 'Movies') brain.movies.push({ title: raw, genre: '-', status: 'wishlist' });
+          else if (title === 'Goals') brain.careerGoals.push({ goal: raw, targetDate: '', progress: '0%' });
+          else if (title === 'Books') brain.books.push({ title: raw, author: '-', status: 'reading', insights: [] });
+          else if (title === 'Work') brain.purchases.work.push({ item: raw, priority: 'medium', purchased: false });
+          else if (title === 'Home') brain.purchases.home.push({ item: raw, priority: 'medium', purchased: false });
+          else if (title === 'Wife') brain.purchases.wife.push({ item: raw, priority: 'medium', purchased: false });
+          if (input) input.value = '';
+          save(KEYS.brain, brain); logActivity('brain_item_added', `Brain item added: ${raw}`); renderBrain(); renderMetrics();
+        };
+      });
+      document.querySelectorAll('[data-brain-input]').forEach(i => {
+        i.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const key = i.dataset.brainInput; const btn = document.querySelector(`[data-brain-add="${key}"]`); btn?.click(); } };
+      });
+    }
+
+    function addPriority() {
+      const i = document.getElementById('newPriority'); const text = i.value.trim(); if (!text) return;
+      state.priorities.push({ text, done: false, declaredAt: Date.now(), completedAt: null }); i.value = '';
+      save(KEYS.state, state); logActivity('task_added', `Task added: ${text}`);
+      renderPriorities(); renderMetrics();
+    }
+
+    window.togglePriority = function(i) {
+      const p = state.priorities[i]; if (!p) return;
+      p.done = !p.done;
+      p.completedAt = p.done ? Date.now() : null;
+      save(KEYS.state, state);
+      if (p.done) logActivity('task_completed', `Task completed: ${p.text}`);
+      renderPriorities(); renderMetrics();
+    }
+    window.editPriority = (i, val) => { if (state.priorities[i]) { state.priorities[i].text = val; save(KEYS.state, state); } };
+    window.removePriority = (i) => { state.priorities.splice(i,1); save(KEYS.state, state); renderPriorities(); renderMetrics(); };
+
+    window.openAgent = function(id) {
+      activeAgentId = id;
+      const a = agents.find(x=>x.id===id); if (!a) return;
+      const photo = a.photo ? `<img src="${attr(a.photo)}" style="width:100%;height:180px;object-fit:cover;border-radius:12px;">` : `<div class="sub-card" style="height:180px;display:flex;align-items:center;justify-content:center;">${esc(a.name)}</div>`;
+      document.getElementById('agentDrawer').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><h3>${esc(a.name)}</h3><button class="btn" onclick="closeDrawer()">Close</button></div>${photo}<div class="muted" style="margin-top:.5rem;">${esc(a.role)} · ${esc(a.model)}</div><p>${esc(a.description||'')}</p><div class="sub-card"><strong>Persona</strong><textarea id="agentPersonaInput" class="textarea" rows="4" style="width:100%;margin-top:.45rem;">${esc(a.persona || '')}</textarea><div class="checklist-row" style="margin-top:.45rem;"><input id="agentPhotoUrlInput" class="input" placeholder="Photo URL (optional)"><input type="file" accept="image/*" onchange="uploadAgentPhoto(this)"><button class="btn" onclick="saveAgentProfile()">Save Profile</button></div></div><h4>Capabilities</h4><ul>${(a.capabilities||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Strengths</h4><ul>${(a.strengths||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Weaknesses</h4><ul>${(a.weaknesses||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>KPIs</h4><ul>${(a.kpis||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Recent Activity</h4>${(a.activityLog||[]).slice(-8).reverse().map(x=>`<div class="feed-item">${esc(x.message)}<div class="muted">${new Date(x.timestamp).toLocaleString()}</div></div>`).join('') || '<div class="muted">No recent activity.</div>'}<button class="btn primary" onclick="openTaskModal()">Send Task</button>`;
+      document.getElementById('agentDrawer').classList.add('open');
+    }
+
+    window.closeDrawer = () => document.getElementById('agentDrawer').classList.remove('open');
+    window.openTaskModal = () => document.getElementById('taskModal').classList.add('open');
+    function closeTaskModal(){ document.getElementById('taskModal').classList.remove('open'); }
+
+    window.saveAgentProfile = function() {
+      const a = agents.find(x => x.id === activeAgentId); if (!a) return;
+      const persona = document.getElementById('agentPersonaInput')?.value || '';
+      const photoUrl = (document.getElementById('agentPhotoUrlInput')?.value || '').trim();
+      a.persona = persona;
+      if (photoUrl) a.photo = photoUrl;
+      save(KEYS.agents, agents);
+      logActivity('agent_profile_updated', `Agent profile updated: ${a.name}`);
+      renderOrgChart();
+      openAgent(a.id);
+    }
+
+    window.uploadAgentPhoto = async function(input) {
+      const a = agents.find(x => x.id === activeAgentId); if (!a) return;
+      const file = input.files?.[0]; if (!file) return;
+      const dataUrl = await fileToDataURL(file);
+      a.photo = dataUrl;
+      save(KEYS.agents, agents);
+      logActivity('agent_profile_updated', `Agent photo uploaded: ${a.name}`);
+      renderOrgChart();
+      openAgent(a.id);
+    }
+
+    async function sendTaskToAgent() {
+      const text = document.getElementById('taskText').value.trim(); if (!text || !activeAgentId) return;
+      const a = agents.find(x=>x.id===activeAgentId); if (!a) return;
+      a.lastActive = Date.now(); a.status = 'busy';
+      a.activityLog.push({ timestamp: Date.now(), message: `Task received: ${text}` });
+      save(KEYS.agents, agents);
+      logActivity('agent_task_sent', `Agent task sent to ${a.name}: ${text}`);
+      if (state.server.online) {
+        try { await fetchWithTimeout(`${SERVER_BASE}/mc/activity`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: `[Agent Task] ${a.name}: ${text}` }) }); } catch {}
+      }
+      closeTaskModal(); renderOrgChart(); openAgent(a.id); renderMetrics();
+    }
+
+    function addDecision() {
+      const question = prompt('Decision question?'); if (!question) return;
+      const summary = prompt('Decision summary?') || '';
+      const consultedRaw = prompt('Consulted agent names (comma separated)?') || '';
+      const consultedIds = consultedRaw.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean).map(n => agents.find(a => a.name.toLowerCase().includes(n))?.id).filter(Boolean);
+      decisions.unshift({ id: uid(), date: new Date().toISOString().slice(0,10), question, summary, agentsConsulted: consultedIds });
+      save(KEYS.decisions, decisions);
+      for (const aid of consultedIds) {
+        const a = agents.find(x=>x.id===aid); if (a) { a.decisionsInvolved.push(question); }
+      }
+      save(KEYS.agents, agents);
+      logActivity('decision_created', `Decision created: ${question}`);
+      renderDecisions();
+    }
+
+    // Second-brain toggles/removal
+    window.toggleBrain = function(key, idx){
+      const list = getBrainListByKey(key); if (!list || !list[idx]) return;
+      const item = list[idx];
+      if (typeof item.purchased === 'boolean') item.purchased = !item.purchased;
+      else if (item.status) item.status = nextStatus(item.status);
+      save(KEYS.brain, brain);
+      logActivity('brain_item_added', `Brain item updated`);
+      renderBrain(); renderMetrics();
+    };
+    window.removeBrain = function(key, idx){
+      const list = getBrainListByKey(key); if (!list) return;
+      list.splice(idx,1);
+      save(KEYS.brain, brain);
+      logActivity('brain_item_added', `Brain item removed`);
+      renderBrain(); renderMetrics();
+    };
+    window.editBrainField = function(key, idx, field, value) {
+      const list = getBrainListByKey(key); if (!list || !list[idx]) return;
+      list[idx][field] = value;
+      save(KEYS.brain, brain);
+      logActivity('brain_item_added', 'Brain item updated');
+      renderMetrics();
+    };
+    window.addInsight = function(bookIdx){
+      const txt = prompt('Insight text?'); if (!txt) return;
+      const b = brain.books[bookIdx]; if (!b) return;
+      b.insights = b.insights || []; b.insights.push({ text: txt, applied: false });
+      save(KEYS.brain, brain); logActivity('brain_item_added', `Book insight added: ${txt}`); renderBrain(); renderMetrics();
+    }
+    window.toggleInsight = function(bookIdx, insightIdx) {
+      const b = brain.books[bookIdx]; if (!b || !b.insights || !b.insights[insightIdx]) return;
+      b.insights[insightIdx].applied = !b.insights[insightIdx].applied;
+      save(KEYS.brain, brain);
+      logActivity('brain_item_added', `Insight conversion updated`);
+      renderBrain(); renderMetrics();
+    }
+
+    function mkAgent(role, description, division) {
       return {
-        ...remote,
-        ...local,
-        projects: { ...(remote.projects || {}), ...(local.projects || {}) },
-        server: { ...(remote.server || {}), ...(local.server || {}) },
-        weather: { ...(remote.weather || {}), ...(local.weather || {}) },
+        id: uid(), name: role, role, division, model: 'gpt-5.3-codex', status: 'online', photo: '',
+        capabilities: ['Planning', 'Execution', 'Reporting'],
+        strengths: ['Structured thinking', 'Fast synthesis'],
+        weaknesses: ['Needs clear constraints'],
+        kpis: ['Cycle time', 'Output quality'],
+        lastActive: Date.now(), activityLog: [], decisionsInvolved: [], description
       };
     }
 
-    // =============================
-    // Utilities
-    // =============================
-    function uid() { return Math.random().toString(36).slice(2, 10); }
-    function nowStr() { return new Date().toLocaleString(); }
-    function today() { return new Date().toISOString().slice(0,10); }
-    function sameDay(a, b) {
-      const d1 = new Date(a), d2 = new Date(b);
-      return d1.getFullYear()===d2.getFullYear() && d1.getMonth()===d2.getMonth() && d1.getDate()===d2.getDate();
+    function optimizeSoulText() {
+      const input = document.getElementById('soulInput');
+      const output = document.getElementById('soulOutput');
+      const raw = (input.value || '').trim();
+      if (!raw) return;
+      const lines = raw.split('\n').map(l => l.trimEnd());
+      const cleaned = lines.filter(Boolean).join('\n');
+      const optimized = `# SOUL.md - Who You Are\n\n${cleaned}\n\n## Optimization Notes\n- Keep responses direct and action-first.\n- Have opinions when useful; avoid generic assistant filler.\n- Ask before external/public actions.\n- Protect privacy and do not leak private context.`;
+      output.textContent = optimized;
+      save('mc_soul', optimized);
+      logActivity('soul_optimized', 'SOUL.md optimized in Command Center');
     }
-    function escapeHtml(str='') { return String(str).replace(/[&<>'"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m])); }
-    function escapeAttr(str='') { return escapeHtml(str).replace(/"/g, '&quot;'); }
+
+    function getBrainListByKey(key) {
+      const title = atob(key);
+      if (title === 'Recipes') return brain.food.recipes;
+      if (title === 'Restaurants') return brain.food.restaurants;
+      if (title === 'Places') return brain.travel;
+      if (title === 'Games') return brain.games;
+      if (title === 'Movies') return brain.movies;
+      if (title === 'Goals') return brain.careerGoals;
+      if (title === 'Books') return brain.books;
+      if (title === 'Work') return brain.purchases.work;
+      if (title === 'Home') return brain.purchases.home;
+      if (title === 'Wife') return brain.purchases.wife;
+      return null;
+    }
+
+    function isCheckedBrainItem(item) {
+      if (typeof item.purchased === 'boolean') return item.purchased;
+      return ['tried','visited','completed','watched'].includes(item.status);
+    }
+
+    function brainPrimaryField(item) {
+      if ('title' in item) return 'title';
+      if ('item' in item) return 'item';
+      if ('goal' in item) return 'goal';
+      if ('place' in item) return 'place';
+      return 'title';
+    }
+
+    function brainStatusSelect(key, idx, item) {
+      if (typeof item.purchased === 'boolean') {
+        return `<select class="select" onchange="editBrainField('${key}',${idx},'purchased',this.value==='true')"><option value="false" ${!item.purchased?'selected':''}>not purchased</option><option value="true" ${item.purchased?'selected':''}>purchased</option></select>`;
+      }
+      if (!item.status) return '';
+      const options = statusOptionsFor(item.status);
+      if (!options.length) return '';
+      return `<select class="select" onchange="editBrainField('${key}',${idx},'status',this.value)">${options.map(o => `<option value="${o}" ${o===item.status?'selected':''}>${o}</option>`).join('')}</select>`;
+    }
+
+    function statusOptionsFor(status) {
+      const groups = [
+        ['want','tried'],
+        ['dream','planned','visited'],
+        ['wishlist','playing','completed'],
+        ['wishlist','watched'],
+        ['reading','completed']
+      ];
+      return groups.find(g => g.includes(status)) || [];
+    }
+
+    function nextStatus(status) {
+      const cycles = {
+        want: 'tried', tried: 'want',
+        dream: 'planned', planned: 'visited', visited: 'dream',
+        wishlist: 'completed', playing: 'completed', completed: 'wishlist',
+        watched: 'wishlist',
+        reading: 'completed'
+      };
+      return cycles[status] || status;
+    }
+
+    function load(key, fallback){ try { return JSON.parse(localStorage.getItem(key)) ?? structuredClone(fallback); } catch { return structuredClone(fallback); } }
+    function save(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+    function uid(){ return Math.random().toString(36).slice(2,10); }
+    function fileToDataURL(file) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file); }); }
+    function esc(s=''){ return String(s).replace(/[&<>'"]/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[m])); }
+    function attr(s=''){ return esc(s).replace(/"/g,'&quot;'); }
   </script>
 </body>
 </html>
