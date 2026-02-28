@@ -58,7 +58,7 @@
     .org-node { width:180px; text-align:center; }
     .node-circle { width:74px; height:74px; border-radius:50%; border:2px solid var(--border); margin:0 auto .4rem; position:relative; overflow:hidden; background:#111; }
     .node-circle img { width:100%; height:100%; object-fit:cover; }
-    .node-circle .fallback { display:flex; align-items:center; justify-content:center; height:100%; color:#cbd5e1; font-weight:700; }
+    .node-circle .fallback { display:flex; align-items:center; justify-content:center; height:100%; color:#cbd5e1; font-weight:700; font-size:1.35rem; }
     .status-dot { width:10px; height:10px; border-radius:999px; position:absolute; bottom:5px; right:6px; border:1px solid #000; }
     .status-online,.status-working { background:var(--ok); box-shadow:0 0 12px rgba(34,197,94,.6); }
     .status-busy,.status-idle { background:var(--warn); box-shadow:0 0 12px rgba(245,158,11,.6); }
@@ -337,6 +337,19 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.2-org-emoji-upload-lucius-audit',
+        date: '2026-02-28',
+        theme: 'Org chart readability + upload-first profile flow',
+        features: [
+          'Increased org chart emoji/readout size for better visual scan at a glance',
+          'Updated agent profile flow to prioritize window file upload for photos (URL now optional fallback)',
+          'Expanded Lucius UX guardrail panel with visual consistency audit checks'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
       {
         version: 'v2.7.1-token-budget-alerts-trend',
         date: '2026-02-28',
@@ -749,14 +762,18 @@
       const hasCommandPalette = !!document.getElementById('commandPalette');
       const hasStatusLegend = !!document.getElementById('agentControlRail');
       const hasUpgradeProof = RELEASES.length >= 3;
-      const score = [hasCommandPalette, hasStatusLegend, hasUpgradeProof].filter(Boolean).length;
-      const pct = Math.round((score / 3) * 100);
+      const hasHudFrame = !!document.querySelector('.hud-frame');
+      const hasLargeOrgEmoji = (parseFloat(getComputedStyle(document.querySelector('.node-circle .fallback')).fontSize) || 0) >= 18;
+      const score = [hasCommandPalette, hasStatusLegend, hasUpgradeProof, hasHudFrame, hasLargeOrgEmoji].filter(Boolean).length;
+      const pct = Math.round((score / 5) * 100);
       el.innerHTML = `<div class="section-head"><strong>UX Guardrails</strong><span class="pill">${pct}% passing</span></div>
-        <div class="muted" style="margin-top:.35rem;">Lucius Fox quality gate: command accessibility, status clarity, release transparency.</div>
+        <div class="muted" style="margin-top:.35rem;">Lucius Fox quality gate: command accessibility, status clarity, release transparency, and visual coherence.</div>
         <ul class="feature-list">
           <li>${hasCommandPalette ? '✅' : '❌'} Command palette reachable with Ctrl/Cmd+K</li>
           <li>${hasStatusLegend ? '✅' : '❌'} Agent status visibility with explicit legend</li>
           <li>${hasUpgradeProof ? '✅' : '❌'} Upgrade timeline populated for auditability</li>
+          <li>${hasHudFrame ? '✅' : '❌'} HUD frame styling active on core cockpit cards</li>
+          <li>${hasLargeOrgEmoji ? '✅' : '❌'} Org chart emoji/readout sizing passes scanability threshold</li>
         </ul>`;
     }
 
@@ -1268,13 +1285,17 @@
       activeAgentId = id;
       const a = agents.find(x=>x.id===id); if (!a) return;
       const photo = a.photo ? `<img src="${attr(a.photo)}" style="width:100%;height:180px;object-fit:cover;border-radius:12px;">` : `<div class="sub-card" style="height:180px;display:flex;align-items:center;justify-content:center;">${esc(a.name)}</div>`;
-      document.getElementById('agentDrawer').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><h3>${esc(a.name)}</h3><button class="btn" onclick="closeDrawer()">Close</button></div>${photo}<div class="muted" style="margin-top:.5rem;">${esc(a.role)} · ${esc(a.model)}</div><p>${esc(a.description||'')}</p><div class="sub-card"><strong>Persona</strong><textarea id="agentPersonaInput" class="textarea" rows="4" style="width:100%;margin-top:.45rem;">${esc(a.persona || '')}</textarea><div class="checklist-row" style="margin-top:.45rem;"><input id="agentPhotoUrlInput" class="input" placeholder="Photo URL (optional)"><input type="file" accept="image/*" onchange="uploadAgentPhoto(this)"><button class="btn" onclick="saveAgentProfile()">Save Profile</button></div></div><h4>Capabilities</h4><ul>${(a.capabilities||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Strengths</h4><ul>${(a.strengths||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Weaknesses</h4><ul>${(a.weaknesses||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>KPIs</h4><ul>${(a.kpis||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Recent Activity</h4>${(a.activityLog||[]).slice(-8).reverse().map(x=>`<div class="feed-item">${esc(x.message)}<div class="muted">${new Date(x.timestamp).toLocaleString()}</div></div>`).join('') || '<div class="muted">No recent activity.</div>'}<button class="btn primary" onclick="openTaskModal()">Send Task</button>`;
+      document.getElementById('agentDrawer').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><h3>${esc(a.name)}</h3><button class="btn" onclick="closeDrawer()">Close</button></div>${photo}<div class="muted" style="margin-top:.5rem;">${esc(a.role)} · ${esc(a.model)}</div><p>${esc(a.description||'')}</p><div class="sub-card"><strong>Persona</strong><textarea id="agentPersonaInput" class="textarea" rows="4" style="width:100%;margin-top:.45rem;">${esc(a.persona || '')}</textarea><div class="checklist-row" style="margin-top:.45rem;"><button class="btn" onclick="triggerAgentPhotoUpload()">Upload Photo (window)</button><input id="agentPhotoFileInput" type="file" accept="image/*" style="display:none" onchange="uploadAgentPhoto(this)"><input id="agentPhotoUrlInput" class="input" placeholder="or paste photo URL (optional)"><button class="btn" onclick="saveAgentProfile()">Save Profile</button></div></div><h4>Capabilities</h4><ul>${(a.capabilities||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Strengths</h4><ul>${(a.strengths||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Weaknesses</h4><ul>${(a.weaknesses||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>KPIs</h4><ul>${(a.kpis||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul><h4>Recent Activity</h4>${(a.activityLog||[]).slice(-8).reverse().map(x=>`<div class="feed-item">${esc(x.message)}<div class="muted">${new Date(x.timestamp).toLocaleString()}</div></div>`).join('') || '<div class="muted">No recent activity.</div>'}<button class="btn primary" onclick="openTaskModal()">Send Task</button>`;
       document.getElementById('agentDrawer').classList.add('open');
     }
 
     window.closeDrawer = () => document.getElementById('agentDrawer').classList.remove('open');
     window.openTaskModal = () => document.getElementById('taskModal').classList.add('open');
     function closeTaskModal(){ document.getElementById('taskModal').classList.remove('open'); }
+
+    window.triggerAgentPhotoUpload = function() {
+      document.getElementById('agentPhotoFileInput')?.click();
+    }
 
     window.saveAgentProfile = function() {
       const a = agents.find(x => x.id === activeAgentId); if (!a) return;
