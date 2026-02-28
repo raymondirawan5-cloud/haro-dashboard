@@ -87,7 +87,24 @@
     .agent-row { display:grid; grid-template-columns:1.4fr .9fr .7fr auto; gap:.45rem; align-items:center; padding:.5rem; border:1px solid var(--border); border-radius:10px; margin-bottom:.45rem; background:rgba(255,255,255,.02); }
     .kbd { border:1px solid var(--border); border-bottom-width:2px; border-radius:8px; padding:.1rem .35rem; font-size:.78rem; color:#c9d5ef; background:rgba(255,255,255,.03); }
     .queue-item { border:1px solid var(--border); border-radius:10px; padding:.55rem; margin-bottom:.45rem; background:rgba(255,255,255,.02); }
-    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} }
+    .pulse-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:.9rem; margin-top:.9rem; }
+    .pulse-strip { display:grid; grid-template-columns:repeat(3,minmax(120px,1fr)); gap:.55rem; margin-top:.7rem; }
+    .pulse-chip { border:1px solid var(--border); border-radius:12px; padding:.55rem; background:rgba(255,255,255,.02); }
+    .pulse-value { font-size:1.15rem; font-weight:800; margin-top:.2rem; }
+    .section-head { display:flex; justify-content:space-between; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    .command-cockpit-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:.9rem; margin-top:.9rem; }
+    .cockpit-tile { border:1px solid var(--border); border-radius:12px; padding:.7rem; background:rgba(255,255,255,.02); }
+    .signal-bars { display:flex; gap:.3rem; align-items:flex-end; height:30px; }
+    .signal-bars span { width:9px; border-radius:4px; background:linear-gradient(180deg,#60a5fa,#1d4ed8); opacity:.35; }
+    .signal-bars span.on { opacity:1; box-shadow:0 0 10px rgba(59,130,246,.45); }
+    .cmd-overlay { position:fixed; inset:0; background:rgba(2,4,14,.72); display:none; align-items:flex-start; justify-content:center; z-index:90; padding-top:12vh; }
+    .cmd-overlay.open { display:flex; }
+    .cmd-box { width:min(820px,95vw); border:1px solid rgba(148,163,184,.25); border-radius:16px; background:rgba(10,14,28,.95); box-shadow:0 30px 80px rgba(0,0,0,.5); overflow:hidden; }
+    .cmd-input { width:100%; border:0; outline:0; background:transparent; color:var(--text); font-size:1rem; padding:1rem; border-bottom:1px solid var(--border); }
+    .cmd-list { max-height:340px; overflow:auto; padding:.55rem; }
+    .cmd-option { display:flex; justify-content:space-between; align-items:center; gap:.5rem; border:1px solid transparent; border-radius:10px; padding:.6rem; cursor:pointer; }
+    .cmd-option:hover { border-color:rgba(59,130,246,.4); background:rgba(59,130,246,.12); }
+    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
 <body>
@@ -103,8 +120,12 @@
 
   <main class="container">
     <section id="tab-dashboard" class="tab-panel active">
-      <div class="grid metrics" id="metricsGrid"></div>
-      <div class="grid two-col" style="margin-top:.9rem;">
+      <div class="card glass">
+        <div class="section-head"><h3>🛰 Mission Pulse Cockpit</h3><span class="pill">Live Operational Snapshot</span></div>
+        <div id="missionPulse"></div>
+      </div>
+      <div class="grid metrics" id="metricsGrid" style="margin-top:.9rem;"></div>
+      <div class="pulse-grid">
         <div class="card glass"><h3>Recent Activity</h3><div id="activityFeed" class="feed"></div></div>
         <div class="card glass">
           <h3>Top Priorities</h3>
@@ -115,9 +136,15 @@
     </section>
 
     <section id="tab-command" class="tab-panel">
-      <div class="card glass">
-        <h3>👑 AI Command Center</h3>
-        <div class="org-wrap" id="orgChart"></div>
+      <div class="command-cockpit-grid">
+        <div class="card glass">
+          <div class="section-head"><h3>👑 AI Command Center</h3><button class="btn" onclick="openCommandPalette()">Open Command Palette</button></div>
+          <div class="org-wrap" id="orgChart"></div>
+        </div>
+        <div class="card glass">
+          <h3>🎯 Operations Cockpit</h3>
+          <div id="opsCockpit"></div>
+        </div>
       </div>
       <div class="card glass" style="margin-top:.9rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
@@ -183,6 +210,12 @@
   <aside id="agentDrawer" class="drawer"></aside>
   <div id="taskModal" class="modal"><div class="modal-box glass"><h3>Send Task</h3><textarea id="taskText" class="textarea" rows="5" style="width:100%"></textarea><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.7rem;"><button class="btn" id="cancelTaskBtn">Cancel</button><button class="btn primary" id="sendTaskBtn">Send Task</button></div></div></div>
   <div id="soulModal" class="modal"><div class="modal-box glass"><h3>Optimize SOUL.md</h3><textarea id="soulInput" class="textarea" rows="10" style="width:100%" placeholder="Paste current SOUL.md or your updated draft..."></textarea><div style="display:flex;justify-content:space-between;gap:.5rem;margin-top:.7rem;"><button class="btn" id="cancelSoulBtn">Cancel</button><button class="btn primary" id="optimizeSoulBtn">Optimize</button></div><div id="soulOutput" class="sub-card" style="margin-top:.7rem; white-space:pre-wrap;"></div></div></div>
+  <div id="commandPalette" class="cmd-overlay" onclick="if(event.target.id==='commandPalette') closeCommandPalette()">
+    <div class="cmd-box">
+      <input id="commandPaletteInput" class="cmd-input" placeholder="Type a command... (e.g. jump dashboard, add queue)">
+      <div id="commandPaletteList" class="cmd-list"></div>
+    </div>
+  </div>
 
   <script>
     // -------- Storage keys --------
@@ -224,6 +257,20 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.6.0-war-room-cockpit',
+        date: '2026-02-28',
+        theme: 'War-room cockpit + command palette wave',
+        features: [
+          'Redesigned Dashboard with a new Mission Pulse Cockpit to surface queue pressure, active agents, and execution momentum at a glance',
+          'Reworked Command Center hierarchy with a dedicated Operations Cockpit side panel for immediate signal visibility and tactical actions',
+          'Added a high-visibility Command Palette overlay so operators can jump tabs and trigger queue/control actions without hunting UI controls'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' },
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ]
+      },
       {
         version: 'v2.5.1-status-lights',
         date: '2026-02-28',
@@ -381,7 +428,15 @@
       };
 
       document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openQuickCommand(); }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openCommandPalette(); }
+        if (e.key === 'Escape') closeCommandPalette();
+      });
+      document.getElementById('commandPaletteInput').addEventListener('input', renderCommandPalette);
+      document.getElementById('commandPaletteInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const first = document.querySelector('#commandPaletteList [data-command]');
+          if (first) { executeCommand(first.getAttribute('data-command')); }
+        }
       });
       document.getElementById('searchInput').addEventListener('input', renderActivity);
       document.getElementById('addPriorityBtn').onclick = addPriority;
@@ -403,15 +458,18 @@
 
     function renderAll() {
       renderServerAndWeather();
+      renderMissionPulse();
       renderMetrics();
       renderActivity();
       renderPriorities();
       renderOrgChart();
+      renderOpsCockpit();
       renderDecisions();
       renderControlRail();
       renderQueueBoard();
       renderRoutingSummary();
       renderUpgrades();
+      renderCommandPalette();
     }
 
     function renderControlRail() {
@@ -440,6 +498,48 @@
       const cfg = map[routingPolicy] || map.balanced;
       const el = document.getElementById('routingSummary');
       if (el) el.innerHTML = `<strong>${cfg.title}</strong><div class="muted" style="margin-top:.35rem;">${cfg.text}</div>`;
+    }
+
+    function renderMissionPulse() {
+      const wrap = document.getElementById('missionPulse');
+      if (!wrap) return;
+      const active = agents.filter(a => normalizeAgentStatus(a.status) !== 'offline').length;
+      const working = agents.filter(a => normalizeAgentStatus(a.status) === 'working').length;
+      const queued = queue.filter(q => q.status === 'queued').length;
+      const inProgress = queue.filter(q => q.status === 'in-progress').length;
+      const doneToday = activity.filter(a => a.type === 'task_completed' || a.type === 'queue_advanced').length;
+      const pressure = queued > 4 ? 'High' : queued > 1 ? 'Moderate' : 'Low';
+      wrap.innerHTML = `<div class="pulse-strip">
+        <div class="pulse-chip"><div class="muted">Agent Throughput</div><div class="pulse-value">${working}/${active || agents.length}</div></div>
+        <div class="pulse-chip"><div class="muted">Queue Pressure</div><div class="pulse-value">${pressure}</div><div class="muted">${queued} queued · ${inProgress} active</div></div>
+        <div class="pulse-chip"><div class="muted">Execution Momentum</div><div class="pulse-value">${doneToday}</div><div class="muted">actions completed</div></div>
+      </div>`;
+    }
+
+    function renderOpsCockpit() {
+      const wrap = document.getElementById('opsCockpit');
+      if (!wrap) return;
+      const working = agents.filter(a => normalizeAgentStatus(a.status) === 'working').length;
+      const barsOn = Math.min(5, Math.max(1, working));
+      const recent = [...activity].sort((a,b)=>b.ts-a.ts).slice(0,3);
+      wrap.innerHTML = `
+        <div class="cockpit-tile">
+          <div class="muted">Signal Strength</div>
+          <div class="signal-bars">${[1,2,3,4,5].map(i => `<span class="${i<=barsOn?'on':''}" style="height:${i*5+5}px"></span>`).join('')}</div>
+          <div class="muted">Based on agents currently working</div>
+        </div>
+        <div class="cockpit-tile" style="margin-top:.6rem;">
+          <div class="muted">Quick Tactical Actions</div>
+          <div class="action-row" style="margin-top:.5rem;">
+            <button class="btn" onclick="switchTab('dashboard')">Focus Dashboard</button>
+            <button class="btn" onclick="addQueueTask()">Queue Task</button>
+            <button class="btn" onclick="setRoutingPolicy('power')">Power Mode</button>
+          </div>
+        </div>
+        <div class="cockpit-tile" style="margin-top:.6rem;">
+          <div class="muted">Latest Signals</div>
+          ${(recent.map(r => `<div style="margin-top:.5rem;">${esc(r.text)}<div class="muted">${new Date(r.ts).toLocaleTimeString()}</div></div>`).join('')) || '<div class="muted" style="margin-top:.5rem;">No signals yet.</div>'}
+        </div>`;
     }
 
     function renderQueueBoard() {
@@ -616,13 +716,43 @@
       });
     }
 
-    function openQuickCommand() {
-      const cmd = (prompt('Quick Command:\n1) Jump: command\n2) Jump: upgrades\n3) Add queue task\n4) Focus search') || '').trim().toLowerCase();
-      if (!cmd) return;
-      if (cmd === '1' || cmd.includes('command')) switchTab('command');
-      else if (cmd === '2' || cmd.includes('upgrade')) switchTab('upgrades');
-      else if (cmd === '3' || cmd.includes('queue')) addQueueTask();
-      else document.getElementById('searchInput')?.focus();
+    const COMMANDS = [
+      { id: 'jump-command', label: 'Jump to Command Center', run: () => switchTab('command') },
+      { id: 'jump-dashboard', label: 'Jump to Dashboard', run: () => switchTab('dashboard') },
+      { id: 'jump-upgrades', label: 'Jump to Upgrades', run: () => switchTab('upgrades') },
+      { id: 'queue-add', label: 'Add Queue Task', run: () => addQueueTask() },
+      { id: 'focus-search', label: 'Focus Search Input', run: () => document.getElementById('searchInput')?.focus() },
+      { id: 'routing-power', label: 'Set Routing: Power Mode', run: () => setRoutingPolicy('power') },
+      { id: 'routing-balanced', label: 'Set Routing: Balanced', run: () => setRoutingPolicy('balanced') }
+    ];
+
+    window.openCommandPalette = function() {
+      document.getElementById('commandPalette').classList.add('open');
+      const input = document.getElementById('commandPaletteInput');
+      input.value = '';
+      renderCommandPalette();
+      setTimeout(() => input.focus(), 0);
+    }
+
+    window.closeCommandPalette = function() {
+      document.getElementById('commandPalette').classList.remove('open');
+    }
+
+    function renderCommandPalette() {
+      const q = (document.getElementById('commandPaletteInput')?.value || '').trim().toLowerCase();
+      const list = COMMANDS.filter(c => !q || c.label.toLowerCase().includes(q));
+      const wrap = document.getElementById('commandPaletteList');
+      if (!wrap) return;
+      wrap.innerHTML = list.map(c => `<div class="cmd-option" data-command="${c.id}"><span>${esc(c.label)}</span><span class="kbd">↵</span></div>`).join('') || '<div class="muted" style="padding:.6rem;">No matching command.</div>';
+      wrap.querySelectorAll('[data-command]').forEach(item => item.onclick = () => executeCommand(item.getAttribute('data-command')));
+    }
+
+    function executeCommand(id) {
+      const cmd = COMMANDS.find(c => c.id === id); if (!cmd) return;
+      cmd.run();
+      closeCommandPalette();
+      logActivity('command_palette', `Command palette action: ${cmd.label}`);
+      renderActivity();
     }
 
     function switchTab(tabId) {
@@ -636,7 +766,7 @@
     window.setRoutingPolicy = function(policy) {
       routingPolicy = policy;
       save('mc_routing_policy', routingPolicy);
-      renderRoutingSummary();
+      renderRoutingSummary(); renderOpsCockpit();
       logActivity('routing_policy_updated', `Routing policy set to ${policy}.`);
     }
 
@@ -651,7 +781,7 @@
       const a = agents.find(x => x.id === agentId); if (!a) return;
       a.status = normalizeAgentStatus(status);
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart();
+      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
       logActivity('agent_status_updated', `${a.name} status set to ${a.status}`);
       renderActivity();
     }
@@ -660,7 +790,7 @@
       const a = agents.find(x => x.id === agentId); if (!a) return;
       a.status = 'working'; a.lastActive = Date.now();
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart();
+      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
       logActivity('agent_run', `${a.name} started execution cycle.`);
       renderActivity();
     }
@@ -669,7 +799,7 @@
       const a = agents.find(x => x.id === agentId); if (!a) return;
       a.status = 'idle';
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart();
+      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
       logActivity('agent_paused', `${a.name} paused for steering.`);
       renderActivity();
     }
@@ -679,7 +809,7 @@
       if (!task) return;
       queue.push({ id: uid(), task, status: 'queued', assignedTo: null, createdAt: Date.now() });
       save('mc_queue', queue);
-      renderQueueBoard();
+      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit();
       logActivity('queue_added', `Queued task: ${task}`);
       renderActivity();
     }
@@ -692,7 +822,7 @@
       item.assignedTo = agent.id;
       item.status = 'in-progress';
       save('mc_queue', queue);
-      renderQueueBoard();
+      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit();
       logActivity('queue_assigned', `Assigned '${item.task}' to ${agent.name}`);
       renderActivity();
     }
@@ -702,7 +832,7 @@
       const next = item.status === 'queued' ? 'in-progress' : item.status === 'in-progress' ? 'review' : 'done';
       item.status = next;
       save('mc_queue', queue);
-      renderQueueBoard();
+      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit();
       logActivity('queue_advanced', `Task '${item.task}' moved to ${next}`);
       renderActivity();
     }
