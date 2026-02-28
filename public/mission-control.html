@@ -117,6 +117,8 @@
     .chart-row { display:grid; grid-template-columns:130px 1fr 86px; gap:.5rem; align-items:center; }
     .bar-track { height:10px; border-radius:999px; background:rgba(148,163,184,.2); overflow:hidden; }
     .bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#22d3ee,#3b82f6,#f59e0b); box-shadow:0 0 12px rgba(34,211,238,.35); }
+    .trend-bars { display:flex; gap:.35rem; align-items:flex-end; height:90px; margin-top:.55rem; }
+    .trend-bar { flex:1; min-width:12px; border-radius:8px 8px 4px 4px; background:linear-gradient(180deg, rgba(34,211,238,.95), rgba(37,99,235,.6)); box-shadow:0 0 10px rgba(34,211,238,.25); }
     @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes,.founder-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
@@ -252,6 +254,7 @@
         <div class="section-head"><h3>📈 Token Analytics</h3><span class="pill">Estimated usage intelligence</span></div>
         <div class="muted" style="margin-top:.35rem;">Model efficiency, agent burn, and cost pressure signals to optimize routing automatically.</div>
         <div id="tokenAnalyticsSummary" class="founder-grid" style="margin-top:.7rem;"></div>
+        <div id="tokenBudgetAlerts" class="sub-card" style="margin-top:.7rem;"></div>
         <div class="analytics-grid">
           <div class="sub-card">
             <strong>By Model</strong>
@@ -261,6 +264,10 @@
             <strong>By Agent</strong>
             <div id="tokenByAgentChart" class="chart-list" style="margin-top:.55rem;"></div>
           </div>
+        </div>
+        <div class="sub-card" style="margin-top:.8rem;">
+          <div class="section-head"><strong>7-Day Burn Trend</strong><span class="pill">Daily estimated tokens</span></div>
+          <div id="tokenTrendBars" class="trend-bars"></div>
         </div>
       </div>
     </section>
@@ -330,6 +337,19 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.1-token-budget-alerts-trend',
+        date: '2026-02-28',
+        theme: 'Token analytics expanded with budget alerts + burn trend chart',
+        features: [
+          'Added budget alert panel highlighting overspend risk and optimization suggestions',
+          'Added 7-day burn trend visualization for fast token trajectory scanning',
+          'Improved analytics visibility so routing and budgeting decisions are made faster'
+        ],
+        links: [
+          { label: 'Open Token Analytics', href: '#tab-analytics' }
+        ]
+      },
       {
         version: 'v2.7.0-token-analytics-charts',
         date: '2026-02-28',
@@ -909,7 +929,9 @@
       const summary = document.getElementById('tokenAnalyticsSummary');
       const byModelEl = document.getElementById('tokenByModelChart');
       const byAgentEl = document.getElementById('tokenByAgentChart');
-      if (!summary || !byModelEl || !byAgentEl) return;
+      const budgetEl = document.getElementById('tokenBudgetAlerts');
+      const trendEl = document.getElementById('tokenTrendBars');
+      if (!summary || !byModelEl || !byAgentEl || !budgetEl || !trendEl) return;
 
       const since = Date.now() - (7 * 86400000);
       const rows = activity.filter(a => a.ts >= since).map(a => {
@@ -918,12 +940,14 @@
         const base = estimateEventTokens(a.type);
         const mult = model.includes('gpt-5.3-codex') ? 2.6 : model.includes('mini') ? 1 : model.includes('nano') ? 0.55 : model.includes('kimi') ? 1.4 : 0.7;
         const tokens = Math.round(base * mult);
-        return { model, agent: agent?.name || 'System', tokens };
+        return { ts: a.ts, model, agent: agent?.name || 'System', tokens };
       });
 
       const totalTokens = rows.reduce((s, r) => s + r.tokens, 0);
       const totalCost = rows.reduce((s, r) => s + ((r.tokens / 1_000_000) * modelCostPer1M(r.model)), 0);
       const avgPerEvent = rows.length ? Math.round(totalTokens / rows.length) : 0;
+      const budgetCap = 8.0;
+      const pct = budgetCap ? Math.round((totalCost / budgetCap) * 100) : 0;
 
       const byModel = Object.entries(rows.reduce((acc, r) => (acc[r.model] = (acc[r.model] || 0) + r.tokens, acc), {}))
         .sort((a,b) => b[1]-a[1]);
@@ -937,11 +961,25 @@
         <div class="founder-tile"><div class="muted">Events Analyzed</div><div class="ux-score">${rows.length}</div></div>
       `;
 
+      const risk = pct >= 90 ? 'High risk' : pct >= 65 ? 'Watch closely' : 'Healthy';
+      budgetEl.innerHTML = `<div class="section-head"><strong>Budget Alert</strong><span class="pill">${risk}</span></div>
+        <div class="muted" style="margin-top:.35rem;">Estimated weekly spend is <strong>$${totalCost.toFixed(2)}</strong> / $${budgetCap.toFixed(2)} cap (${pct}%).</div>
+        <div class="muted" style="margin-top:.35rem;">Suggestion: ${pct >= 90 ? 'shift growth/finance to mini immediately' : pct >= 65 ? 'keep auto-router and monitor codex-heavy tasks' : 'safe to run balanced throughput' }.</div>`;
+
       const maxM = Math.max(1, ...byModel.map(x => x[1]));
       byModelEl.innerHTML = byModel.map(([name,val]) => `<div class="chart-row"><div class="muted">${esc(name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(3, Math.round((val/maxM)*100))}%"></div></div><div class="muted" style="text-align:right;">${val.toLocaleString()}</div></div>`).join('') || '<div class="muted">No model usage yet.</div>';
 
       const maxA = Math.max(1, ...byAgent.map(x => x[1]));
       byAgentEl.innerHTML = byAgent.map(([name,val]) => `<div class="chart-row"><div class="muted">${esc(name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(3, Math.round((val/maxA)*100))}%"></div></div><div class="muted" style="text-align:right;">${val.toLocaleString()}</div></div>`).join('') || '<div class="muted">No agent usage yet.</div>';
+
+      const days = [...Array(7)].map((_,i) => {
+        const start = Date.now() - ((6-i) * 86400000);
+        const end = start + 86400000;
+        const dayTokens = rows.filter(r => r.ts >= start && r.ts < end).reduce((s,r)=>s+r.tokens,0);
+        return dayTokens;
+      });
+      const maxD = Math.max(1, ...days);
+      trendEl.innerHTML = days.map((v,idx) => `<div class="trend-bar" title="Day ${idx+1}: ${v.toLocaleString()} tokens" style="height:${Math.max(10, Math.round((v/maxD)*100))}%"></div>`).join('');
     }
 
     function renderActivity() {
