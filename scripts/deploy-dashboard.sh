@@ -4,8 +4,8 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE_NAME="haro-dashboard.service"
 HEALTH_URLS=(
-  "http://127.0.0.1:8787/dashboard"
-  "http://127.0.0.1:8787/mission-control/decisions"
+  "http://127.0.0.1:8787/haro/mission-control.html"
+  "http://127.0.0.1:8787/haro/mission-control/decisions"
 )
 
 DRY_RUN=0

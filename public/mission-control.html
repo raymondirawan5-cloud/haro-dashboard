@@ -4,9 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RayOS v2 — Mission Control</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #050508;
@@ -87,6 +84,13 @@
     .agent-row { display:grid; grid-template-columns:1.4fr .9fr .7fr auto; gap:.45rem; align-items:center; padding:.5rem; border:1px solid var(--border); border-radius:10px; margin-bottom:.45rem; background:rgba(255,255,255,.02); }
     .kbd { border:1px solid var(--border); border-bottom-width:2px; border-radius:8px; padding:.1rem .35rem; font-size:.78rem; color:#c9d5ef; background:rgba(255,255,255,.03); }
     .queue-item { border:1px solid var(--border); border-radius:10px; padding:.55rem; margin-bottom:.45rem; background:rgba(255,255,255,.02); }
+    .queue-lanes { display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:.6rem; }
+    .queue-lane { border:1px solid var(--border); border-radius:12px; padding:.55rem; background:rgba(255,255,255,.02); }
+    .queue-lane h4 { margin:.1rem 0 .5rem; font-size:.85rem; color:#d7e3ff; }
+    .registry-grid { display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:.6rem; }
+    .registry-card { border:1px solid var(--border); border-radius:12px; padding:.65rem; background:rgba(255,255,255,.02); }
+    .token-panel { display:grid; grid-template-columns:repeat(4,minmax(180px,1fr)); gap:.6rem; }
+    .token-chip { border:1px solid var(--border); border-radius:12px; padding:.55rem; background:rgba(255,255,255,.02); }
     .pulse-grid { display:grid; grid-template-columns:1.5fr 1fr; gap:.9rem; margin-top:.9rem; }
     .pulse-strip { display:grid; grid-template-columns:repeat(3,minmax(120px,1fr)); gap:.55rem; margin-top:.7rem; }
     .pulse-chip { border:1px solid var(--border); border-radius:12px; padding:.55rem; background:rgba(255,255,255,.02); }
@@ -104,7 +108,7 @@
     .cmd-list { max-height:340px; overflow:auto; padding:.55rem; }
     .cmd-option { display:flex; justify-content:space-between; align-items:center; gap:.5rem; border:1px solid transparent; border-radius:10px; padding:.6rem; cursor:pointer; }
     .cmd-option:hover { border-color:rgba(59,130,246,.4); background:rgba(59,130,246,.12); }
-    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
+    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
 <body>
@@ -125,8 +129,26 @@
         <div id="missionPulse"></div>
       </div>
       <div class="grid metrics" id="metricsGrid" style="margin-top:.9rem;"></div>
+      <div id="tokenPanel" class="token-panel" style="margin-top:.9rem;"></div>
       <div class="pulse-grid">
-        <div class="card glass"><h3>Recent Activity</h3><div id="activityFeed" class="feed"></div></div>
+        <div class="card glass">
+          <div class="section-head"><h3>Recent Activity</h3><span class="pill">Timeline</span></div>
+          <div class="checklist-row" style="margin:.5rem 0 .65rem;">
+            <select id="activityTypeFilter" class="select">
+              <option value="all">All events</option>
+              <option value="queue">Queue</option>
+              <option value="agent">Agent</option>
+              <option value="routing">Routing</option>
+              <option value="upgrade">Upgrade</option>
+            </select>
+            <select id="activityWindow" class="select">
+              <option value="24">Last 24h</option>
+              <option value="72">Last 72h</option>
+              <option value="168">Last 7d</option>
+            </select>
+          </div>
+          <div id="activityFeed" class="feed"></div>
+        </div>
         <div class="card glass">
           <h3>Top Priorities</h3>
           <div id="priorityList"></div>
@@ -159,6 +181,11 @@
           <button class="btn" id="openSoulBtn">Open Optimizer</button>
         </div>
         <div class="muted">Refine voice, boundaries, and behavior principles for SOUL.md with one-click optimization.</div>
+      </div>
+
+      <div class="card glass" style="margin-top:.9rem;">
+        <div class="section-head"><h3>🗂 Role-based Agent Registry</h3><span class="pill">Engine Assignment</span></div>
+        <div id="agentRegistry" class="registry-grid" style="margin-top:.6rem;"></div>
       </div>
 
       <div class="control-grid">
@@ -258,6 +285,27 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.6.1-agent-registry-routing-flow',
+        date: '2026-02-28',
+        theme: 'Multi-agent command center UX wave (registry + routing + queue + timeline)',
+        features: [
+          'Added role-based Agent Registry cards with direct engine assignment controls per operator role',
+          'Upgraded queue flow into lane-based board with inline assignee selectors and one-click state advancement',
+          'Added activity timeline filters plus token panel improvements for model mix visibility and queue burn forecasting',
+          'Expanded command palette quick actions for fast routing presets and assignment flows'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' },
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ],
+        verification: [
+          'npm run lint ✅',
+          'npm run build ✅',
+          'Deployed with ./scripts/deploy-dashboard.sh ✅',
+          'Verified live at https://raydashboard.site/mission-control.html ✅'
+        ]
+      },
       {
         version: 'v2.6.0-war-room-cockpit',
         date: '2026-02-28',
@@ -454,6 +502,8 @@
         }
       });
       document.getElementById('searchInput').addEventListener('input', renderActivity);
+      document.getElementById('activityTypeFilter')?.addEventListener('change', renderActivity);
+      document.getElementById('activityWindow')?.addEventListener('change', renderActivity);
       document.getElementById('addPriorityBtn').onclick = addPriority;
       document.getElementById('newPriority').addEventListener('keydown', e => { if (e.key === 'Enter') addPriority(); });
       document.getElementById('addDecisionBtn').onclick = addDecision;
@@ -475,12 +525,14 @@
       renderServerAndWeather();
       renderMissionPulse();
       renderMetrics();
+      renderTokenPanel();
       renderActivity();
       renderPriorities();
       renderOrgChart();
       renderOpsCockpit();
       renderDecisions();
       renderControlRail();
+      renderAgentRegistry();
       renderQueueBoard();
       renderRoutingSummary();
       renderUpgrades();
@@ -584,6 +636,7 @@
           </div>
           <div class="release-meta"><span class="pill">Mission Control</span><span class="pill">Dashboard</span><span class="pill">Verified Log</span></div>
           <ul class="feature-list">${(r.features || []).map(f => `<li>${esc(f)}</li>`).join('')}</ul>
+          ${(r.verification?.length ? `<div class="sub-card" style="margin-top:.5rem;"><strong>Verification</strong><ul class="feature-list">${r.verification.map(v => `<li>${esc(v)}</li>`).join('')}</ul></div>` : '')}
           ${links ? `<div class="action-row">${links}</div>` : ''}
         </article>`;
       }).join('');
@@ -638,10 +691,40 @@
       document.getElementById('metricsGrid').innerHTML = cards.map(c => `<div class="card glass"><div class="muted">${c.label}</div><div class="metric-value">${c.value}</div><div class="muted">${c.sub}</div></div>`).join('');
     }
 
+    function renderTokenPanel() {
+      const wrap = document.getElementById('tokenPanel');
+      if (!wrap) return;
+      const modelCounts = agents.reduce((acc, a) => { acc[a.model] = (acc[a.model] || 0) + 1; return acc; }, {});
+      const queued = queue.filter(q => q.status === 'queued').length;
+      const inProgress = queue.filter(q => q.status === 'in-progress').length;
+      const burnTier = routingPolicy === 'power' ? 'High' : routingPolicy === 'balanced' || routingPolicy === 'auto' ? 'Medium' : 'Low';
+      const cards = [
+        { label: 'Routing Burn Tier', value: burnTier, sub: `Policy: ${routingPolicy}` },
+        { label: 'Codex Operators', value: modelCounts['openai-codex/gpt-5.3-codex'] || 0, sub: 'High-compute agents' },
+        { label: 'Mini/Nano Operators', value: (modelCounts['openai/gpt-4.1-mini'] || 0) + (modelCounts['openai/gpt-4.1-nano'] || 0), sub: 'Cost-optimized agents' },
+        { label: 'Queue Token Pressure', value: queued + inProgress, sub: `${queued} queued · ${inProgress} active` }
+      ];
+      wrap.innerHTML = cards.map(c => `<div class="token-chip"><div class="muted">${c.label}</div><div class="pulse-value">${c.value}</div><div class="muted">${c.sub}</div></div>`).join('');
+    }
+
     function renderActivity() {
       const q = document.getElementById('searchInput').value.trim().toLowerCase();
-      const list = [...activity].sort((a,b)=>b.ts-a.ts).filter(x => !q || x.text.toLowerCase().includes(q)).slice(0,120);
-      document.getElementById('activityFeed').innerHTML = list.map(a => `<div class="feed-item">${esc(a.text)}<div class="muted">${new Date(a.ts).toLocaleString()}</div></div>`).join('') || '<div class="muted">No activity.</div>';
+      const type = document.getElementById('activityTypeFilter')?.value || 'all';
+      const hours = Number(document.getElementById('activityWindow')?.value || 24);
+      const minTs = Date.now() - (hours * 3600000);
+      const typeMap = {
+        queue: ['queue_added','queue_assigned','queue_advanced'],
+        agent: ['agent_run','agent_paused','agent_task_sent','agent_model_updated','agent_status_updated','agent_status_mode'],
+        routing: ['routing_policy_updated'],
+        upgrade: ['upgrade_summary_copied']
+      };
+      const list = [...activity].sort((a,b)=>b.ts-a.ts).filter(x => {
+        if (x.ts < minTs) return false;
+        if (q && !x.text.toLowerCase().includes(q)) return false;
+        if (type === 'all') return true;
+        return (typeMap[type] || []).includes(x.type);
+      }).slice(0,120);
+      document.getElementById('activityFeed').innerHTML = list.map(a => `<div class="feed-item">${esc(a.text)}<div class="muted">${new Date(a.ts).toLocaleString()}</div></div>`).join('') || '<div class="muted">No activity for selected filters.</div>';
     }
 
     function renderPriorities() {
