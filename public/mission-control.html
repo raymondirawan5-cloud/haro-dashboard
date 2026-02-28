@@ -318,7 +318,8 @@
     };
 
     const SERVER_BASE = `${location.protocol}//${location.hostname}:8899`;
-    const API_BASE = './api/mission-control';
+    const BASE_PREFIX = location.pathname.startsWith('/haro/') ? '/haro' : '';
+    const API_BASE = `${BASE_PREFIX}/api/mission-control`;
     const TABS = [
       { id: 'dashboard', label: '📊 Dashboard' },
       { id: 'command', label: '🏢 Command Center' },
@@ -351,6 +352,19 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.8-status-weather-fallback-mesh',
+        date: '2026-02-28',
+        theme: 'Status/weather hardening for real-world latency and path variance',
+        features: [
+          'Hardened API base-path resolution for /haro deployments to reduce client-side endpoint misses',
+          'Added dual-endpoint fallback mesh for both health and weather checks',
+          'Increased network timeout tolerance for dashboard probes in higher-latency conditions'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ]
+      },
       {
         version: 'v2.7.7-weather-reliability-hotfix',
         date: '2026-02-28',
@@ -608,7 +622,7 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchWeather(); });
 
     // -------- Networking: timeout + retry --------
-    async function fetchWithTimeout(url, options = {}, timeoutMs = 3000) {
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), timeoutMs);
       try {
@@ -617,29 +631,39 @@
     }
 
     async function checkServerStatus() {
-      const tryStatus = async () => fetchWithTimeout(`${API_BASE}/health`);
-      try {
-        let res;
-        try { res = await tryStatus(); } catch { res = await tryStatus(); }
-        if (!res.ok) throw new Error('status failed');
-        state.server.online = true;
-      } catch {
-        state.server.online = false;
+      const endpoints = [`${API_BASE}/health`, `${SERVER_BASE}/mc/status`];
+      let online = false;
+      for (const ep of endpoints) {
+        try {
+          const res = await fetchWithTimeout(ep, {}, 7000);
+          if (res.ok) { online = true; break; }
+        } catch {}
       }
+      state.server.online = online;
       save(KEYS.state, state);
       renderServerAndWeather();
     }
 
     async function fetchWeather(force = false) {
-      const tryFetch = async () => fetchWithTimeout(`${API_BASE}/weather?city=Jakarta`, {}, 6500);
+      const endpoints = [
+        `${API_BASE}/weather?city=Jakarta`,
+        `${SERVER_BASE}/mc/weather?city=Jakarta`
+      ];
       try {
-        let res;
-        try { res = await tryFetch(); } catch { res = await tryFetch(); }
-        if (!res.ok) throw new Error('weather failed');
-        const w = await res.json();
-        const temp = (w.temperature ?? null);
-        if (temp === null || temp === '--') throw new Error('weather empty');
-        state.weather = { city: w.city || 'Jakarta', temp, condition: w.condition ?? 'Unavailable' };
+        let payload = null;
+        for (const ep of endpoints) {
+          try {
+            const res = await fetchWithTimeout(ep, {}, 7000);
+            if (!res.ok) continue;
+            const w = await res.json();
+            const temp = (w.temperature ?? null);
+            if (temp === null || temp === '--') continue;
+            payload = { city: w.city || 'Jakarta', temp, condition: w.condition ?? 'Unavailable' };
+            break;
+          } catch {}
+        }
+        if (!payload) throw new Error('weather unavailable');
+        state.weather = payload;
       } catch {
         const prev = state.weather || {};
         const hasPrev = prev.temp !== undefined && prev.temp !== null && prev.temp !== '--';
