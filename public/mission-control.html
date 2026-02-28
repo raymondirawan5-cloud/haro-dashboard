@@ -177,6 +177,7 @@
         <div class="card glass">
           <h3>🧭 Routing Policy</h3>
           <div class="checklist-row" style="margin-top:.6rem;">
+            <button class="btn" onclick="setRoutingPolicy('auto')">Auto Router (recommended)</button>
             <button class="btn" onclick="setRoutingPolicy('cost')">Cost Saver</button>
             <button class="btn" onclick="setRoutingPolicy('balanced')">Balanced</button>
             <button class="btn" onclick="setRoutingPolicy('power')">Power Mode</button>
@@ -272,6 +273,19 @@
         ]
       },
       {
+        version: 'v2.5.2-auto-routing-status',
+        date: '2026-02-28',
+        theme: 'Auto-derived status + auto router',
+        features: [
+          'Agent status is now auto-derived from queue assignments and last activity with manual override support',
+          'Added status mode per agent (auto/manual) so you can force status when needed',
+          'Routing now defaults to Auto Router so engine strategy adapts by task type (light vs coding/architecture)'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
+      {
         version: 'v2.5.1-status-lights',
         date: '2026-02-28',
         theme: 'Agent status visibility upgrade',
@@ -321,10 +335,11 @@
     let brain = load(KEYS.brain, defaultBrain);
     let activity = load(KEYS.activity, [{ ts: Date.now(), type: 'init', text: 'RayOS v2 initialized.' }]);
     state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
-    agents = agents.map(a => ({ ...a, status: normalizeAgentStatus(a.status) }));
+    agents = agents.map(a => ({ ...a, status: normalizeAgentStatus(a.status), statusMode: a.statusMode || 'auto' }));
+    applyRoutingPolicy();
     let activeTab = 'dashboard';
     let activeAgentId = null;
-    let routingPolicy = load('mc_routing_policy', 'balanced');
+    let routingPolicy = load('mc_routing_policy', 'auto');
     let queue = load('mc_queue', [
       { id: uid(), task: 'Audit today priorities and close dead tasks', status: 'queued', assignedTo: null, createdAt: Date.now() - 3600000 },
       { id: uid(), task: 'Prepare weekly founder briefing from activity log', status: 'in-progress', assignedTo: agents[0]?.id || null, createdAt: Date.now() - 1800000 }
@@ -476,14 +491,19 @@
       const wrap = document.getElementById('agentControlRail');
       if (!wrap) return;
       wrap.innerHTML = agents.map(a => {
-        const s = normalizeAgentStatus(a.status);
+        const s = effectiveAgentStatus(a);
+        const mode = a.statusMode || 'auto';
         return `
         <div class="agent-row">
           <div><strong>${esc(a.name)}</strong><div class="muted">${esc(a.role)}</div></div>
           <select class="select" onchange="setAgentModel('${a.id}', this.value)">
             ${['openai-codex/gpt-5.3-codex','openai/gpt-4.1-mini','openai/gpt-4.1-nano','kimi'].map(m => `<option value="${m}" ${a.model===m?'selected':''}>${m}</option>`).join('')}
           </select>
-          <div style="display:flex;align-items:center;gap:.4rem;"><span class="status-dot status-${s}" style="position:static;display:inline-block;"></span><select class="select" onchange="setAgentStatus('${a.id}', this.value)"><option value="working" ${s==='working'?'selected':''}>working</option><option value="idle" ${s==='idle'?'selected':''}>idle</option><option value="offline" ${s==='offline'?'selected':''}>offline</option></select></div>
+          <div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;">
+            <span class="status-dot status-${s}" style="position:static;display:inline-block;"></span>
+            <select class="select" onchange="setAgentStatusMode('${a.id}', this.value)"><option value="auto" ${mode==='auto'?'selected':''}>auto</option><option value="manual" ${mode==='manual'?'selected':''}>manual</option></select>
+            <select class="select" onchange="setAgentStatus('${a.id}', this.value)" ${mode==='auto'?'disabled':''}><option value="working" ${s==='working'?'selected':''}>working</option><option value="idle" ${s==='idle'?'selected':''}>idle</option><option value="offline" ${s==='offline'?'selected':''}>offline</option></select>
+          </div>
           <div style="display:flex;gap:.3rem;"><button class="btn" onclick="runAgent('${a.id}')">Run</button><button class="btn" onclick="pauseAgent('${a.id}')">Pause</button></div>
         </div>
       `}).join('');
@@ -491,6 +511,7 @@
 
     function renderRoutingSummary() {
       const map = {
+        auto: { title: 'Auto Router', text: 'Automatically assigns engines by role/task profile: power models for architecture/coding, lighter models for routine work.' },
         cost: { title: 'Cost Saver', text: 'Mini/Nano preferred for routine tasks. Codex only for complex implementation.' },
         balanced: { title: 'Balanced', text: 'Mix of Codex and Mini based on role criticality and urgency.' },
         power: { title: 'Power Mode', text: 'Codex-first routing for faster high-quality execution at higher token burn.' }
@@ -640,7 +661,8 @@
     function miniAgent(a) {
       const initials = a.name.split(' ').map(x=>x[0]).slice(0,2).join('').toUpperCase();
       const photo = a.photo ? `<img src="${attr(a.photo)}">` : `<div class="fallback">${initials}</div>`;
-      return `<div class="agent-mini" onclick="openAgent('${a.id}')"><div class="row" style="display:flex;gap:.5rem;align-items:center;"><div class="node-circle ${a.status!=='offline'?'active-glow':''}" style="width:44px;height:44px;margin:0;">${photo}<span class="status-dot status-${a.status}"></span></div><div><div>${esc(a.name)}</div><div class="muted">${esc(a.role)}</div></div></div></div>`;
+      const s = effectiveAgentStatus(a);
+      return `<div class="agent-mini" onclick="openAgent('${a.id}')"><div class="row" style="display:flex;gap:.5rem;align-items:center;"><div class="node-circle ${s!=='offline'?'active-glow':''}" style="width:44px;height:44px;margin:0;">${photo}<span class="status-dot status-${s}"></span></div><div><div>${esc(a.name)}</div><div class="muted">${esc(a.role)} · ${s}</div></div></div></div>`;
     }
 
     function renderDecisions() {
@@ -722,6 +744,7 @@
       { id: 'jump-upgrades', label: 'Jump to Upgrades', run: () => switchTab('upgrades') },
       { id: 'queue-add', label: 'Add Queue Task', run: () => addQueueTask() },
       { id: 'focus-search', label: 'Focus Search Input', run: () => document.getElementById('searchInput')?.focus() },
+      { id: 'routing-auto', label: 'Set Routing: Auto Router', run: () => setRoutingPolicy('auto') },
       { id: 'routing-power', label: 'Set Routing: Power Mode', run: () => setRoutingPolicy('power') },
       { id: 'routing-balanced', label: 'Set Routing: Balanced', run: () => setRoutingPolicy('balanced') }
     ];
@@ -766,7 +789,8 @@
     window.setRoutingPolicy = function(policy) {
       routingPolicy = policy;
       save('mc_routing_policy', routingPolicy);
-      renderRoutingSummary(); renderOpsCockpit();
+      applyRoutingPolicy();
+      renderRoutingSummary(); renderOpsCockpit(); renderControlRail();
       logActivity('routing_policy_updated', `Routing policy set to ${policy}.`);
     }
 
@@ -777,8 +801,19 @@
       logActivity('agent_model_updated', `${a.name} engine set to ${model}`);
     }
 
+    window.setAgentStatusMode = function(agentId, mode) {
+      const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.statusMode = mode === 'manual' ? 'manual' : 'auto';
+      if (a.statusMode === 'auto') a.status = autoDerivedStatus(a);
+      save(KEYS.agents, agents);
+      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
+      logActivity('agent_status_mode', `${a.name} status mode set to ${a.statusMode}`);
+      renderActivity();
+    }
+
     window.setAgentStatus = function(agentId, status) {
       const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.statusMode = 'manual';
       a.status = normalizeAgentStatus(status);
       save(KEYS.agents, agents);
       renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
@@ -788,6 +823,7 @@
 
     window.runAgent = function(agentId) {
       const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.statusMode = 'manual';
       a.status = 'working'; a.lastActive = Date.now();
       save(KEYS.agents, agents);
       renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
@@ -797,6 +833,7 @@
 
     window.pauseAgent = function(agentId) {
       const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.statusMode = 'manual';
       a.status = 'idle';
       save(KEYS.agents, agents);
       renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
@@ -964,9 +1001,33 @@
       return 'idle';
     }
 
+    function autoDerivedStatus(agent) {
+      const now = Date.now();
+      const hasActiveQueue = queue.some(q => q.assignedTo === agent.id && ['queued','in-progress','review'].includes(q.status));
+      const recentlyActive = (now - (agent.lastActive || 0)) < (45 * 60 * 1000);
+      if (hasActiveQueue || recentlyActive) return 'working';
+      return 'idle';
+    }
+
+    function effectiveAgentStatus(agent) {
+      if ((agent.statusMode || 'auto') === 'manual') return normalizeAgentStatus(agent.status);
+      return autoDerivedStatus(agent);
+    }
+
+    function applyRoutingPolicy() {
+      if (routingPolicy !== 'auto') return;
+      agents.forEach(a => {
+        const role = (a.role || '').toLowerCase();
+        if (role.includes('strategy') || role.includes('operations')) a.model = 'openai-codex/gpt-5.3-codex';
+        else if (role.includes('growth') || role.includes('finance')) a.model = 'openai/gpt-4.1-mini';
+        else a.model = 'openai/gpt-4.1-nano';
+      });
+      save(KEYS.agents, agents);
+    }
+
     function mkAgent(role, description, division) {
       return {
-        id: uid(), name: role, role, division, model: 'gpt-5.3-codex', status: 'idle', photo: '',
+        id: uid(), name: role, role, division, model: 'gpt-5.3-codex', status: 'idle', statusMode: 'auto', photo: '',
         capabilities: ['Planning', 'Execution', 'Reporting'],
         strengths: ['Structured thinking', 'Fast synthesis'],
         weaknesses: ['Needs clear constraints'],
