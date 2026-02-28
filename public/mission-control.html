@@ -83,7 +83,11 @@
     .pill { font-size:.76rem; border:1px solid var(--border); border-radius:999px; padding:.22rem .5rem; color:#dbe6ff; background:rgba(59,130,246,.16); }
     .feature-list { margin:.5rem 0 0 1rem; color:#cdd6ea; }
     .action-row { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.6rem; }
-    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col{grid-template-columns:1fr;} }
+    .control-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:.9rem; margin-top:.9rem; }
+    .agent-row { display:grid; grid-template-columns:1.4fr .9fr .7fr auto; gap:.45rem; align-items:center; padding:.5rem; border:1px solid var(--border); border-radius:10px; margin-bottom:.45rem; background:rgba(255,255,255,.02); }
+    .kbd { border:1px solid var(--border); border-bottom-width:2px; border-radius:8px; padding:.1rem .35rem; font-size:.78rem; color:#c9d5ef; background:rgba(255,255,255,.03); }
+    .queue-item { border:1px solid var(--border); border-radius:10px; padding:.55rem; margin-bottom:.45rem; background:rgba(255,255,255,.02); }
+    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
@@ -129,19 +133,33 @@
         </div>
         <div class="muted">Refine voice, boundaries, and behavior principles for SOUL.md with one-click optimization.</div>
       </div>
-    </section>
 
-    <section id="tab-brain" class="tab-panel">
-      <div class="card glass">
-        <h3>🧠 Second Brain</h3>
-        <div id="brainWrap"></div>
+      <div class="control-grid">
+        <div class="card glass">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
+            <h3>🎛 Agent Control Rail</h3>
+            <div class="muted">Shortcut <span class="kbd">⌘/Ctrl + K</span></div>
+          </div>
+          <div id="agentControlRail" style="margin-top:.6rem;"></div>
+        </div>
+        <div class="card glass">
+          <h3>🧭 Routing Policy</h3>
+          <div class="checklist-row" style="margin-top:.6rem;">
+            <button class="btn" onclick="setRoutingPolicy('cost')">Cost Saver</button>
+            <button class="btn" onclick="setRoutingPolicy('balanced')">Balanced</button>
+            <button class="btn" onclick="setRoutingPolicy('power')">Power Mode</button>
+          </div>
+          <div id="routingSummary" class="sub-card" style="margin-top:.7rem;"></div>
+          <div class="muted" style="margin-top:.5rem;">Engine assignment priority is now visible and editable per agent.</div>
+        </div>
       </div>
-    </section>
 
-    <section id="tab-notes" class="tab-panel">
-      <div class="card glass">
-        <h3>📝 Notes</h3>
-        <textarea id="notesArea" class="textarea" rows="16" style="width:100%"></textarea>
+      <div class="card glass" style="margin-top:.9rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
+          <h3>📥 Execution Queue</h3>
+          <button class="btn" onclick="addQueueTask()">+ Queue Task</button>
+        </div>
+        <div id="queueBoard" style="margin-top:.7rem;"></div>
       </div>
     </section>
 
@@ -175,8 +193,6 @@
     const TABS = [
       { id: 'dashboard', label: '📊 Dashboard' },
       { id: 'command', label: '🏢 Command Center' },
-      { id: 'brain', label: '🧠 Second Brain' },
-      { id: 'notes', label: '📝 Notes' },
       { id: 'upgrades', label: '🚀 Upgrades' }
     ];
 
@@ -204,6 +220,21 @@
 
     const RELEASES = [
       {
+        version: 'v2.5.0-night-ops',
+        date: '2026-02-28',
+        theme: 'Command Center-first rebuild (Second Brain + Notes removed)',
+        features: [
+          'Removed Second Brain and Notes tabs to focus the UI around command execution only',
+          'Added Agent Control Rail with per-agent engine visibility and quick run/pause controls',
+          'Added Routing Policy presets (Cost Saver, Balanced, Power Mode) with live summary',
+          'Added Execution Queue board so work can be staged, assigned, and moved through status quickly'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' },
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ]
+      },
+      {
         version: 'v2.4.0-nightly',
         date: '2026-02-27',
         theme: 'Command Center polish + visibility',
@@ -216,17 +247,6 @@
           { label: 'Open Command Center', href: '#tab-command' },
           { label: 'Open Dashboard', href: '#tab-dashboard' }
         ]
-      },
-      {
-        version: 'v2.3.0',
-        date: '2026-02-24',
-        theme: 'Mission Control stabilization',
-        features: [
-          'Single-file mission control cockpit with org chart + decisions + brain modules',
-          'Server/weather status heartbeat and local persistence hardening',
-          'Task dispatch + activity feeds and SOUL optimizer flow'
-        ],
-        links: []
       }
     ];
 
@@ -238,6 +258,11 @@
     state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
     let activeTab = 'dashboard';
     let activeAgentId = null;
+    let routingPolicy = load('mc_routing_policy', 'balanced');
+    let queue = load('mc_queue', [
+      { id: uid(), task: 'Audit today priorities and close dead tasks', status: 'queued', assignedTo: null, createdAt: Date.now() - 3600000 },
+      { id: uid(), task: 'Prepare weekly founder briefing from activity log', status: 'in-progress', assignedTo: agents[0]?.id || null, createdAt: Date.now() - 1800000 }
+    ]);
 
     initUI();
     renderAll();
@@ -337,12 +362,11 @@
       };
 
       document.addEventListener('keydown', e => {
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openQuickCommand(); }
       });
       document.getElementById('searchInput').addEventListener('input', renderActivity);
       document.getElementById('addPriorityBtn').onclick = addPriority;
       document.getElementById('newPriority').addEventListener('keydown', e => { if (e.key === 'Enter') addPriority(); });
-      document.getElementById('notesArea').addEventListener('input', (e) => { state.notes = e.target.value; save(KEYS.state, state); });
       document.getElementById('addDecisionBtn').onclick = addDecision;
       document.getElementById('cancelTaskBtn').onclick = closeTaskModal;
       document.getElementById('sendTaskBtn').onclick = sendTaskToAgent;
@@ -365,9 +389,46 @@
       renderPriorities();
       renderOrgChart();
       renderDecisions();
-      renderBrain();
+      renderControlRail();
+      renderQueueBoard();
+      renderRoutingSummary();
       renderUpgrades();
-      document.getElementById('notesArea').value = state.notes || '';
+    }
+
+    function renderControlRail() {
+      const wrap = document.getElementById('agentControlRail');
+      if (!wrap) return;
+      wrap.innerHTML = agents.map(a => `
+        <div class="agent-row">
+          <div><strong>${esc(a.name)}</strong><div class="muted">${esc(a.role)}</div></div>
+          <select class="select" onchange="setAgentModel('${a.id}', this.value)">
+            ${['openai-codex/gpt-5.3-codex','openai/gpt-4.1-mini','openai/gpt-4.1-nano','kimi'].map(m => `<option value="${m}" ${a.model===m?'selected':''}>${m}</option>`).join('')}
+          </select>
+          <span class="pill">${a.status || 'online'}</span>
+          <div style="display:flex;gap:.3rem;"><button class="btn" onclick="runAgent('${a.id}')">Run</button><button class="btn" onclick="pauseAgent('${a.id}')">Pause</button></div>
+        </div>
+      `).join('');
+    }
+
+    function renderRoutingSummary() {
+      const map = {
+        cost: { title: 'Cost Saver', text: 'Mini/Nano preferred for routine tasks. Codex only for complex implementation.' },
+        balanced: { title: 'Balanced', text: 'Mix of Codex and Mini based on role criticality and urgency.' },
+        power: { title: 'Power Mode', text: 'Codex-first routing for faster high-quality execution at higher token burn.' }
+      };
+      const cfg = map[routingPolicy] || map.balanced;
+      const el = document.getElementById('routingSummary');
+      if (el) el.innerHTML = `<strong>${cfg.title}</strong><div class="muted" style="margin-top:.35rem;">${cfg.text}</div>`;
+    }
+
+    function renderQueueBoard() {
+      const wrap = document.getElementById('queueBoard');
+      if (!wrap) return;
+      const items = [...queue].sort((a,b)=>b.createdAt-a.createdAt);
+      wrap.innerHTML = items.map(item => {
+        const assignee = agents.find(a=>a.id===item.assignedTo)?.name || 'Unassigned';
+        return `<div class="queue-item"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:center;flex-wrap:wrap;"><strong>${esc(item.task)}</strong><span class="pill">${esc(item.status)}</span></div><div class="muted" style="margin:.35rem 0;">Owner: ${esc(assignee)}</div><div style="display:flex;gap:.4rem;flex-wrap:wrap;"><button class="btn" onclick="assignQueue('${item.id}')">Assign</button><button class="btn" onclick="advanceQueue('${item.id}')">Advance</button></div></div>`;
+      }).join('') || '<div class="muted">Queue empty.</div>';
     }
 
     function renderUpgrades() {
@@ -421,16 +482,14 @@
       const declared = state.priorities.filter(p => !!p.declaredAt).length;
       const completed = state.priorities.filter(p => !!p.completedAt).length;
       const executionRate = declared ? Math.round((completed / declared) * 100) : 0;
-      const allInsights = brain.books.flatMap(b => b.insights || []);
-      const converted = allInsights.filter(i => i.applied).length;
-      const insightRate = allInsights.length ? Math.round((converted / allInsights.length) * 100) : 0;
       const activeAgents = agents.filter(a => a.status !== 'offline').length;
       const weekStart = Date.now() - (7 * 86400000);
-      const weeklyCompleted = activity.filter(a => a.ts >= weekStart && (a.type === 'task_completed' || a.type === 'agent_task_sent')).length;
+      const weeklyCompleted = activity.filter(a => a.ts >= weekStart && (a.type === 'task_completed' || a.type === 'agent_task_sent' || a.type === 'queue_advanced')).length;
+      const decisionsThisWeek = decisions.filter(d => new Date(d.date).getTime() >= weekStart).length;
 
       const cards = [
         { label: 'Execution Rate', value: `${executionRate}%`, sub: `${completed}/${declared || 0} completed` },
-        { label: 'Insight Conversion Rate', value: `${insightRate}%`, sub: `${converted}/${allInsights.length} insights converted` },
+        { label: 'Decision Velocity', value: decisionsThisWeek, sub: 'Decisions logged this week' },
         { label: 'Active Agents', value: activeAgents, sub: `${agents.length} total agents` },
         { label: 'Weekly Actions Completed', value: weeklyCompleted, sub: 'Last 7 days' }
       ];
@@ -534,6 +593,88 @@
       document.querySelectorAll('[data-brain-input]').forEach(i => {
         i.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const key = i.dataset.brainInput; const btn = document.querySelector(`[data-brain-add="${key}"]`); btn?.click(); } };
       });
+    }
+
+    function openQuickCommand() {
+      const cmd = (prompt('Quick Command:\n1) Jump: command\n2) Jump: upgrades\n3) Add queue task\n4) Focus search') || '').trim().toLowerCase();
+      if (!cmd) return;
+      if (cmd === '1' || cmd.includes('command')) switchTab('command');
+      else if (cmd === '2' || cmd.includes('upgrade')) switchTab('upgrades');
+      else if (cmd === '3' || cmd.includes('queue')) addQueueTask();
+      else document.getElementById('searchInput')?.focus();
+    }
+
+    function switchTab(tabId) {
+      if (!TABS.some(t => t.id === tabId)) return;
+      activeTab = tabId;
+      document.querySelectorAll('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === activeTab));
+      document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+      document.getElementById(`tab-${activeTab}`)?.classList.add('active');
+    }
+
+    window.setRoutingPolicy = function(policy) {
+      routingPolicy = policy;
+      save('mc_routing_policy', routingPolicy);
+      renderRoutingSummary();
+      logActivity('routing_policy_updated', `Routing policy set to ${policy}.`);
+    }
+
+    window.setAgentModel = function(agentId, model) {
+      const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.model = model;
+      save(KEYS.agents, agents);
+      logActivity('agent_model_updated', `${a.name} engine set to ${model}`);
+    }
+
+    window.runAgent = function(agentId) {
+      const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.status = 'online'; a.lastActive = Date.now();
+      save(KEYS.agents, agents);
+      renderControlRail(); renderOrgChart();
+      logActivity('agent_run', `${a.name} started execution cycle.`);
+      renderActivity();
+    }
+
+    window.pauseAgent = function(agentId) {
+      const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.status = 'busy';
+      save(KEYS.agents, agents);
+      renderControlRail(); renderOrgChart();
+      logActivity('agent_paused', `${a.name} paused for steering.`);
+      renderActivity();
+    }
+
+    window.addQueueTask = function() {
+      const task = (prompt('New queue task:') || '').trim();
+      if (!task) return;
+      queue.push({ id: uid(), task, status: 'queued', assignedTo: null, createdAt: Date.now() });
+      save('mc_queue', queue);
+      renderQueueBoard();
+      logActivity('queue_added', `Queued task: ${task}`);
+      renderActivity();
+    }
+
+    window.assignQueue = function(id) {
+      const item = queue.find(x => x.id === id); if (!item) return;
+      const pick = prompt(`Assign to agent (name contains):\n${agents.map(a => `- ${a.name}`).join('\n')}`) || '';
+      const agent = agents.find(a => a.name.toLowerCase().includes(pick.toLowerCase()));
+      if (!agent) return;
+      item.assignedTo = agent.id;
+      item.status = 'in-progress';
+      save('mc_queue', queue);
+      renderQueueBoard();
+      logActivity('queue_assigned', `Assigned '${item.task}' to ${agent.name}`);
+      renderActivity();
+    }
+
+    window.advanceQueue = function(id) {
+      const item = queue.find(x => x.id === id); if (!item) return;
+      const next = item.status === 'queued' ? 'in-progress' : item.status === 'in-progress' ? 'review' : 'done';
+      item.status = next;
+      save('mc_queue', queue);
+      renderQueueBoard();
+      logActivity('queue_advanced', `Task '${item.task}' moved to ${next}`);
+      renderActivity();
     }
 
     function addPriority() {
