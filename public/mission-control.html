@@ -188,6 +188,16 @@
         <div id="agentRegistry" class="registry-grid" style="margin-top:.6rem;"></div>
       </div>
 
+      <div class="card glass" style="margin-top:.9rem;">
+        <div class="section-head"><h3>🦊 Lucius Fox UX Lab</h3><span class="pill">Minimalist Cyberpunk HUD</span></div>
+        <div class="muted" style="margin-top:.4rem;">Design direction: dark immersive base, neon luminescence, HUD gauges, cinematic depth, minimalist information density.</div>
+        <ul class="feature-list" style="margin-top:.6rem;">
+          <li>Primary accent split: cyan/teal for digital signal, amber/orange for energy and alerts.</li>
+          <li>Card grammar: glass panels + metallic edge highlights + restrained glow to avoid clutter.</li>
+          <li>Typography rule: geometric sans for UI, monospace for metrics and machine readouts.</li>
+        </ul>
+      </div>
+
       <div class="control-grid">
         <div class="card glass">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
@@ -267,6 +277,7 @@
       { key: 'operations', name: '⚙ Operations Division' },
       { key: 'finance', name: '💰 Finance Division' },
       { key: 'growth', name: '📈 Growth Division' },
+      { key: 'design', name: '🎨 UX Division' },
       { key: 'life', name: '🧘 Life Division' }
     ];
 
@@ -276,6 +287,7 @@
       mkAgent('Operations Officer', 'Execution systems and delivery reliability.', 'operations'),
       mkAgent('Finance Analyst', 'Cash, runway, and leverage discipline.', 'finance'),
       mkAgent('Growth Hacker', 'Acquisition experiments and compounding loops.', 'growth'),
+      mkAgent('Lucius Fox', 'Senior UX Systems Designer (Apple-level craft) focused on minimalist futuristic HUD interfaces.', 'design'),
       mkAgent('Life Architect', 'Energy, family cadence, and personal design.', 'life')
     ];
     const defaultBrain = {
@@ -285,6 +297,19 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.6.2-lucius-fox-ux-lab',
+        date: '2026-02-28',
+        theme: 'Lucius Fox UX direction introduced (minimalist cyberpunk HUD)',
+        features: [
+          'Added Lucius Fox as dedicated UX lead agent with design-focused role and objective',
+          'Added Lucius Fox UX Lab panel to make design language explicit and consistent release-to-release',
+          'Expanded org structure with UX Division for clearer ownership of interface quality'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
       {
         version: 'v2.6.1-agent-registry-routing-flow',
         date: '2026-02-28',
@@ -389,6 +414,7 @@
     ]);
     state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
     agents = agents.map(a => ({ ...a, status: normalizeAgentStatus(a.status), statusMode: a.statusMode || 'auto' }));
+    ensureLuciusFox();
     applyRoutingPolicy();
     let activeTab = 'dashboard';
     let activeAgentId = null;
@@ -1139,6 +1165,18 @@
       if (s === 'busy' || s === 'idle' || s === 'paused') return 'idle';
       if (s === 'offline') return 'offline';
       return 'idle';
+    }
+
+    function ensureLuciusFox() {
+      const exists = agents.some(a => (a.name || '').toLowerCase() === 'lucius fox');
+      if (exists) return;
+      const lucius = mkAgent('Lucius Fox', 'Senior UX Systems Designer (Apple-level craft) focused on minimalist futuristic HUD interfaces.', 'design');
+      lucius.model = 'openai/gpt-4.1-mini';
+      lucius.capabilities = ['Interaction design systems', 'Visual hierarchy refinement', 'UX heuristic audits'];
+      lucius.kpis = ['Task-to-action clarity', 'Operator scan speed', 'Visual consistency'];
+      agents.push(lucius);
+      save(KEYS.agents, agents);
+      logActivity('agent_added', 'Lucius Fox added as UX lead.');
     }
 
     function autoDerivedStatus(agent) {
