@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { apiUrl } from "@/lib/client-api-base";
+import { useToast } from "@/components/ui/Toast";
 
 type Commitment = {
   id: string;
@@ -13,97 +14,201 @@ type Commitment = {
   proof_id: string | null;
 };
 
-type TodayPayload = { date: string; commitments: Commitment[] };
+type TodayPayload = {
+  date: string;
+  commitments: Commitment[];
+};
+
+function EmptyState({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="empty-state">
+      <div className="empty-state-icon">🎯</div>
+      <div className="empty-state-title">No commitments yet</div>
+      <p className="small muted">Add your first commitment to start tracking your mission.</p>
+      <button onClick={onAdd} style={{ marginTop: 16 }}>
+        Add Commitment
+      </button>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: Commitment["status"] }) {
+  const labels: Record<Commitment["status"], string> = {
+    committed: "Committed",
+    in_progress: "In Progress",
+    blocked: "Blocked",
+    done: "Done",
+  };
+
+  return (
+    <span className="badge" style={{ fontSize: 11, textTransform: "capitalize" }}>
+      {labels[status]}
+    </span>
+  );
+}
 
 export default function MissionControlTodayPage() {
   const [date, setDate] = useState("");
   const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [taskId, setTaskId] = useState("");
   const [decisionId, setDecisionId] = useState("");
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { showToast } = useToast();
+  const formRef = useRef<HTMLDivElement>(null);
 
-  async function load() {
-    const res = await fetch(apiUrl("/api/mission-control/today"));
-    const data = (await res.json()) as TodayPayload;
-    setDate(data.date);
-    setCommitments(Array.isArray(data.commitments) ? data.commitments : []);
-  }
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl("/api/mission-control/today"));
+      const data = (await res.json()) as TodayPayload;
+      setDate(data.date);
+      setCommitments(Array.isArray(data.commitments) ? data.commitments : []);
+    } catch {
+      showToast("Failed to load today commitments.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
 
   useEffect(() => {
-    load().catch(() => setFeedback("Failed to load today commitments."));
-  }, []);
+    load();
+  }, [load]);
 
   async function addCommitment() {
-    setFeedback(null);
-    const res = await fetch(apiUrl("/api/mission-control/commit"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title, task_id: taskId, decision_id: decisionId, proof_required: true }),
-    });
-
-    if (!res.ok) {
-      setFeedback("Failed to create commitment.");
+    if (!title.trim()) {
+      showToast("Title is required.", "error");
       return;
     }
-
-    setTitle("");
-    setTaskId("");
-    setDecisionId("");
-    await load();
-    setFeedback("Commitment created.");
+    setSaving(true);
+    try {
+      const res = await fetch(apiUrl("/api/mission-control/commit"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          task_id: taskId.trim() || undefined,
+          decision_id: decisionId.trim() || undefined,
+          proof_required: true,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setTitle("");
+      setTaskId("");
+      setDecisionId("");
+      await load();
+      showToast("Commitment created.", "success");
+    } catch {
+      showToast("Failed to create commitment.", "error");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function setStatus(id: string, status: Commitment["status"]) {
-    const res = await fetch(apiUrl("/api/mission-control/update-status"), {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id, status }),
-    });
-
-    if (!res.ok) {
-      setFeedback("Status update failed.");
-      return;
+    try {
+      const res = await fetch(apiUrl("/api/mission-control/update-status"), {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      await load();
+      showToast("Status updated.", "success");
+    } catch {
+      showToast("Status update failed.", "error");
     }
-
-    await load();
   }
 
+  const scrollToForm = () => formRef.current?.scrollIntoView({ behavior: "smooth" });
+
   return (
-    <section>
-      <h2>Mission Control · Today</h2>
-      <p className="muted">today.json is the single execution authority.</p>
-      <p className="small muted">Date: {date || "-"}</p>
-      {feedback ? <p className="muted">{feedback}</p> : null}
-
-      <article className="panel" style={{ marginTop: 12 }}>
-        <h3>Add Commitment</h3>
-        <div className="stack">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-          <input value={taskId} onChange={(e) => setTaskId(e.target.value)} placeholder="task_id" />
-          <input value={decisionId} onChange={(e) => setDecisionId(e.target.value)} placeholder="decision_id" />
-          <button type="button" onClick={addCommitment}>Create commitment</button>
+    <section className="animate-fade-in">
+      <div className="decision-header" style={{ marginBottom: 8 }}>
+        <div>
+          <h2>Mission Control · Today</h2>
+          <p className="muted small">today.json is the single execution authority.</p>
         </div>
-      </article>
+        <span className="badge">{date || "—"}</span>
+      </div>
 
-      <article className="panel" style={{ marginTop: 12 }}>
-        <h3>Commitments</h3>
-        <div className="stack">
-          {commitments.map((item) => (
-            <div key={item.id} className="card blocker-row">
-              <strong>{item.title}</strong>
-              <span className="small muted">{item.task_id} · {item.decision_id}</span>
-              <select value={item.status} onChange={(e) => setStatus(item.id, e.target.value as Commitment["status"])}>
-                <option value="committed">committed</option>
-                <option value="in_progress">in_progress</option>
-                <option value="blocked">blocked</option>
-                <option value="done">done</option>
-              </select>
+      {loading ? (
+        <div className="stack" style={{ marginTop: 24 }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="panel">
+              <div className="skeleton" style={{ height: 60 }} />
             </div>
           ))}
-          {!commitments.length ? <p className="small muted">No commitments yet.</p> : null}
         </div>
-      </article>
+      ) : (
+        <>
+          <article ref={formRef} className="panel" style={{ marginTop: 16 }}>
+            <h3>New Commitment</h3>
+            <div className="stack" style={{ marginTop: 12 }}>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="What are you committing to today?"
+                onKeyDown={(e) => e.key === "Enter" && addCommitment()}
+              />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <input
+                  value={taskId}
+                  onChange={(e) => setTaskId(e.target.value)}
+                  placeholder="task_id (optional)"
+                />
+                <input
+                  value={decisionId}
+                  onChange={(e) => setDecisionId(e.target.value)}
+                  placeholder="decision_id (optional)"
+                />
+              </div>
+              <div className="inline-actions" style={{ marginTop: 4 }}>
+                <button type="button" onClick={addCommitment} disabled={saving || !title.trim()}>
+                  {saving ? "Creating..." : "Create commitment"}
+                </button>
+              </div>
+            </div>
+          </article>
+
+          <article className="panel" style={{ marginTop: 16 }}>
+            <div className="decision-header">
+              <h3>Commitments</h3>
+              <span className="badge">{commitments.length}</span>
+            </div>
+            <div className="stack" style={{ marginTop: 12 }}>
+              {commitments.length === 0 ? (
+                <EmptyState onAdd={scrollToForm} />
+              ) : (
+                commitments.map((item) => (
+                  <div key={item.id} className="panel card-hover" style={{ padding: 12 }}>
+                    <div className="decision-header" style={{ marginBottom: 8 }}>
+                      <strong>{item.title}</strong>
+                      <StatusBadge status={item.status} />
+                    </div>
+                    <p className="small muted" style={{ marginBottom: 12 }}>
+                      {item.task_id && <span>task: {item.task_id}</span>}
+                      {item.decision_id && (
+                        <span>{item.task_id ? " · " : ""}decision: {item.decision_id}</span>
+                      )}
+                    </p>
+                    <select
+                      value={item.status}
+                      onChange={(e) => setStatus(item.id, e.target.value as Commitment["status"])}
+                      style={{ width: "auto", minWidth: 140 }}
+                    >
+                      <option value="committed">committed</option>
+                      <option value="in_progress">in_progress</option>
+                      <option value="blocked">blocked</option>
+                      <option value="done">done</option>
+                    </select>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
+        </>
+      )}
     </section>
   );
 }

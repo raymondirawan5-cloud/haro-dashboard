@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useToast } from "@/components/ui/Toast";
 import { apiUrl } from "@/lib/client-api-base";
 
 type DecisionStatus = "pending" | "approved" | "rejected";
@@ -24,12 +25,27 @@ type EditState = {
 
 const PROJECT = "padel-tracker-v1";
 
+function StatusChip({ status }: { status: DecisionStatus }) {
+  const styles: Record<DecisionStatus, { color: string; bg: string; border: string }> = {
+    pending: { color: "#d7dce5", bg: "rgba(107, 114, 128, 0.13)", border: "#4b5563" },
+    approved: { color: "#aef8ff", bg: "rgba(0, 240, 255, 0.1)", border: "#00a8b3" },
+    rejected: { color: "#ffc4cf", bg: "rgba(255, 59, 92, 0.14)", border: "#8f2a3f" },
+  };
+  const s = styles[status];
+  return (
+    <span
+      className="badge"
+      style={{ color: s.color, background: s.bg, borderColor: s.border, textTransform: "capitalize" }}
+    >
+      {status}
+    </span>
+  );
+}
+
 export default function MissionControlDecisionsPage() {
   const [decisions, setDecisions] = useState<DecisionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editState, setEditState] = useState<EditState>({
     choice: "",
@@ -38,167 +54,177 @@ export default function MissionControlDecisionsPage() {
     approvedAt: "",
   });
   const [savingId, setSavingId] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl(`/api/mission-control/decisions?project=${PROJECT}`));
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setDecisions(data.decisions || []);
+      setError(null);
+    } catch {
+      setError("Unable to load decisions.");
+      showToast("Unable to load decisions.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast]);
 
   useEffect(() => {
-    fetch(apiUrl(`/api/mission-control/decisions?project=${PROJECT}`))
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load decisions");
-        return res.json();
-      })
-      .then((data) => {
-        setDecisions(data.decisions || []);
-        setError(null);
-      })
-      .catch(() => {
-        setError("Unable to load decisions right now.");
-        setDecisions([]);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    load();
+  }, [load]);
 
   const pendingCount = useMemo(
-    () => decisions.filter((decision) => decision.status === "pending").length,
-    [decisions],
+    () => decisions.filter((d) => d.status === "pending").length,
+    [decisions]
   );
 
-  function startEdit(decision: DecisionItem) {
-    setEditingId(decision.id);
-    setFeedback(null);
+  const startEdit = (d: DecisionItem) => {
+    setEditingId(d.id);
     setEditState({
-      choice: decision.choice || "",
-      status: decision.status || "pending",
-      approvedBy: decision.approvedBy || "",
-      approvedAt: decision.approvedAt || "",
+      choice: d.choice || "",
+      status: d.status,
+      approvedBy: d.approvedBy || "",
+      approvedAt: d.approvedAt || "",
     });
-  }
+  };
 
-  function cancelEdit() {
+  const cancelEdit = () => {
     setEditingId(null);
     setEditState({ choice: "", status: "pending", approvedBy: "", approvedAt: "" });
-  }
+  };
 
-  async function saveDecision(id: string) {
+  const saveDecision = async (id: string) => {
     setSavingId(id);
-    setFeedback(null);
     try {
-      const response = await fetch(apiUrl("/api/mission-control/decisions"), {
+      const res = await fetch(apiUrl("/api/mission-control/decisions"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          project: PROJECT,
-          id,
-          choice: editState.choice,
-          status: editState.status,
-          approvedBy: editState.approvedBy,
-          approvedAt: editState.approvedAt,
-        }),
+        body: JSON.stringify({ project: PROJECT, id, ...editState }),
       });
-
-      if (!response.ok) throw new Error("save failed");
-
-      const data = await response.json();
+      if (!res.ok) throw new Error("Save failed");
+      const data = await res.json();
       setDecisions(data.decisions || []);
-      setFeedback("Decision saved.");
+      showToast("Decision saved.", "success");
       cancelEdit();
     } catch {
-      setError("Save failed. Please retry.");
+      showToast("Save failed.", "error");
     } finally {
       setSavingId(null);
     }
-  }
+  };
 
   return (
-    <section>
-      <div className="decision-header">
-        <h2>Mission Control · Decision Sign-off</h2>
-        <span className="badge status-pending">Pending: {pendingCount}</span>
+    <section className="animate-fade-in">
+      <div className="decision-header" style={{ marginBottom: 8 }}>
+        <div>
+          <h2>Mission Control · Decision Sign-off</h2>
+          <p className="muted small">Approve or reject Tracker V1 blocker decisions.</p>
+        </div>
+        <StatusChip status={pendingCount > 0 ? "pending" : "approved"} />
       </div>
-      <p className="muted">Approve or reject Tracker V1 blocker decisions without editing markdown.</p>
 
-      {loading ? <p className="muted">Loading decisions...</p> : null}
-      {error ? <p className="muted">{error}</p> : null}
-      {feedback ? <p className="muted">{feedback}</p> : null}
+      {loading ? (
+        <div className="stack" style={{ marginTop: 24 }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="panel">
+              <div className="skeleton" style={{ height: 24, marginBottom: 12 }} />
+              <div className="skeleton" style={{ height: 60 }} />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="empty-state" style={{ marginTop: 24 }}>
+          <div className="empty-state-icon">⚠</div>
+          <div className="empty-state-title">{error}</div>
+          <button onClick={load} style={{ marginTop: 16 }}>Retry</button>
+        </div>
+      ) : decisions.length === 0 ? (
+        <div className="empty-state" style={{ marginTop: 24 }}>
+          <div className="empty-state-icon">📋</div>
+          <div className="empty-state-title">No decisions</div>
+          <p className="small muted">No decisions found for this project.</p>
+        </div>
+      ) : (
+        <div className="stack" style={{ marginTop: 16 }}>
+          {decisions.map((d) => {
+            const isEditing = editingId === d.id;
+            return (
+              <article key={d.id} className="panel card-hover">
+                <div className="decision-header" style={{ marginBottom: 12 }}>
+                  <h3>{d.title}</h3>
+                  <StatusChip status={d.status} />
+                </div>
+                <p className="muted small" style={{ marginBottom: 12 }}>
+                  {d.blocker}
+                </p>
 
-      <div className="stack">
-        {decisions.map((decision) => {
-          const isEditing = editingId === decision.id;
-          return (
-            <article key={decision.id} className="panel">
-              <div className="decision-header">
-                <h3>{decision.title}</h3>
-                <span className={`badge status-chip status-${decision.status}`}>{decision.status}</span>
-              </div>
-              <p className="muted small">{decision.blocker}</p>
-
-              {isEditing ? (
-                <div className="stack compact">
-                  <label className="small muted">Choice</label>
-                  <textarea
-                    value={editState.choice}
-                    onChange={(e) => setEditState((prev) => ({ ...prev, choice: e.target.value }))}
-                    rows={3}
-                    placeholder="Decision choice text"
-                  />
-
-                  <div className="grid two">
-                    <div>
-                      <label className="small muted">Status</label>
-                      <select
-                        value={editState.status}
-                        onChange={(e) =>
-                          setEditState((prev) => ({ ...prev, status: e.target.value as DecisionStatus }))
-                        }
-                      >
-                        <option value="pending">pending</option>
-                        <option value="approved">approved</option>
-                        <option value="rejected">rejected</option>
-                      </select>
+                {isEditing ? (
+                  <div className="stack compact">
+                    <label className="small muted">Choice</label>
+                    <textarea
+                      value={editState.choice}
+                      onChange={(e) => setEditState((p) => ({ ...p, choice: e.target.value }))}
+                      rows={3}
+                    />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
+                      <div>
+                        <label className="small muted">Status</label>
+                        <select
+                          value={editState.status}
+                          onChange={(e) => setEditState((p) => ({ ...p, status: e.target.value as DecisionStatus }))}
+                        >
+                          <option value="pending">pending</option>
+                          <option value="approved">approved</option>
+                          <option value="rejected">rejected</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="small muted">Approved by</label>
+                        <input
+                          value={editState.approvedBy}
+                          onChange={(e) => setEditState((p) => ({ ...p, approvedBy: e.target.value }))}
+                          placeholder="Name"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label className="small muted">Approved by</label>
+                      <label className="small muted">Approval date</label>
                       <input
-                        value={editState.approvedBy}
-                        onChange={(e) => setEditState((prev) => ({ ...prev, approvedBy: e.target.value }))}
-                        placeholder="Ray"
+                        type="date"
+                        value={editState.approvedAt}
+                        onChange={(e) => setEditState((p) => ({ ...p, approvedAt: e.target.value }))}
                       />
                     </div>
+                    <div className="inline-actions" style={{ marginTop: 8 }}>
+                      <button onClick={() => saveDecision(d.id)} disabled={savingId === d.id}>
+                        {savingId === d.id ? "Saving..." : "Save changes"}
+                      </button>
+                      <button className="operator-btn-ghost" onClick={cancelEdit}>
+                        Cancel
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="small muted">Approval date</label>
-                    <input
-                      type="date"
-                      value={editState.approvedAt}
-                      onChange={(e) => setEditState((prev) => ({ ...prev, approvedAt: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="inline-actions">
-                    <button type="button" onClick={() => saveDecision(decision.id)} disabled={savingId === decision.id}>
-                      {savingId === decision.id ? "Saving..." : "Save changes"}
-                    </button>
-                    <button type="button" className="ghost-btn" onClick={cancelEdit}>
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p>{decision.choice || "No choice recorded yet."}</p>
-                  <p className="small muted">
-                    Approved by: {decision.approvedBy || "-"} · Date: {decision.approvedAt || "-"}
-                  </p>
-                  <div className="inline-actions">
-                    <button type="button" className="ghost-btn" onClick={() => startEdit(decision)}>
-                      Edit / Sign off
-                    </button>
-                  </div>
-                </>
-              )}
-            </article>
-          );
-        })}
-      </div>
+                ) : (
+                  <>
+                    <p style={{ marginBottom: 8 }}>{d.choice || "No choice recorded yet."}</p>
+                    <p className="small muted">
+                      Approved by: {d.approvedBy || "-"} · Date: {d.approvedAt || "-"}
+                    </p>
+                    <div className="inline-actions" style={{ marginTop: 12 }}>
+                      <button className="operator-btn-ghost" onClick={() => startEdit(d)}>
+                        Edit / Sign off
+                      </button>
+                    </div>
+                  </>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
