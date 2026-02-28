@@ -318,6 +318,7 @@
     };
 
     const SERVER_BASE = `${location.protocol}//${location.hostname}:8899`;
+    const API_BASE = './api/mission-control';
     const TABS = [
       { id: 'dashboard', label: '📊 Dashboard' },
       { id: 'command', label: '🏢 Command Center' },
@@ -350,6 +351,20 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.6-live-health-weather-fix',
+        date: '2026-02-28',
+        theme: 'Status/weather reliability fix for HTTPS dashboard',
+        features: [
+          'Switched server status indicator to same-origin health API to avoid HTTPS mixed-protocol failures',
+          'Added weather API route under /api/mission-control/weather (Open-Meteo backed) for reliable city weather display',
+          'Kept Founder Mode behavior explicit: advanced command-center blocks are hidden only when Founder Mode is ON'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' },
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
       {
         version: 'v2.7.5-flow-pipeline-control',
         date: '2026-02-28',
@@ -587,7 +602,7 @@
     }
 
     async function checkServerStatus() {
-      const tryStatus = async () => fetchWithTimeout(`${SERVER_BASE}/mc/status`);
+      const tryStatus = async () => fetchWithTimeout(`${API_BASE}/health`);
       try {
         let res;
         try { res = await tryStatus(); } catch { res = await tryStatus(); }
@@ -602,10 +617,10 @@
 
     async function fetchWeather() {
       try {
-        const res = await fetchWithTimeout(`${SERVER_BASE}/mc/weather?city=Jakarta`);
+        const res = await fetchWithTimeout(`${API_BASE}/weather?city=Jakarta`);
         if (!res.ok) throw new Error('weather failed');
         const w = await res.json();
-        state.weather = { city: 'Jakarta', temp: w.temperature ?? '--', condition: w.condition ?? 'Unavailable' };
+        state.weather = { city: w.city || 'Jakarta', temp: w.temperature ?? '--', condition: w.condition ?? 'Unavailable' };
       } catch {
         state.weather = { city: 'Jakarta', temp: '--', condition: 'Unavailable' };
       }
