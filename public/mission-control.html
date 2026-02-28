@@ -63,8 +63,8 @@
     .node-circle img { width:100%; height:100%; object-fit:cover; }
     .node-circle .fallback { display:flex; align-items:center; justify-content:center; height:100%; color:#cbd5e1; font-weight:700; }
     .status-dot { width:10px; height:10px; border-radius:999px; position:absolute; bottom:5px; right:6px; border:1px solid #000; }
-    .status-online { background:var(--ok); box-shadow:0 0 12px rgba(34,197,94,.6); }
-    .status-busy { background:var(--warn); box-shadow:0 0 12px rgba(245,158,11,.6); }
+    .status-online,.status-working { background:var(--ok); box-shadow:0 0 12px rgba(34,197,94,.6); }
+    .status-busy,.status-idle { background:var(--warn); box-shadow:0 0 12px rgba(245,158,11,.6); }
     .status-offline { background:#64748b; }
     .active-glow { box-shadow:0 0 20px rgba(59,130,246,.35); }
     .division-col { width:220px; }
@@ -139,6 +139,11 @@
           <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
             <h3>🎛 Agent Control Rail</h3>
             <div class="muted">Shortcut <span class="kbd">⌘/Ctrl + K</span></div>
+          </div>
+          <div class="muted" style="margin-top:.35rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;">
+            <span><span class="status-dot status-working" style="position:static;display:inline-block;margin-right:.25rem;"></span>Working</span>
+            <span><span class="status-dot status-idle" style="position:static;display:inline-block;margin-right:.25rem;"></span>Idle</span>
+            <span><span class="status-dot status-offline" style="position:static;display:inline-block;margin-right:.25rem;"></span>Offline</span>
           </div>
           <div id="agentControlRail" style="margin-top:.6rem;"></div>
         </div>
@@ -220,6 +225,19 @@
 
     const RELEASES = [
       {
+        version: 'v2.5.1-status-lights',
+        date: '2026-02-28',
+        theme: 'Agent status visibility upgrade',
+        features: [
+          'Added explicit agent statuses: working, idle, offline across control rail and org cards',
+          'Added live status light + status selector per agent for quick operational steering',
+          'Added status legend in Agent Control Rail for immediate visual scanning'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
+      {
         version: 'v2.5.0-night-ops',
         date: '2026-02-28',
         theme: 'Command Center-first rebuild (Second Brain + Notes removed)',
@@ -256,6 +274,7 @@
     let brain = load(KEYS.brain, defaultBrain);
     let activity = load(KEYS.activity, [{ ts: Date.now(), type: 'init', text: 'RayOS v2 initialized.' }]);
     state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
+    agents = agents.map(a => ({ ...a, status: normalizeAgentStatus(a.status) }));
     let activeTab = 'dashboard';
     let activeAgentId = null;
     let routingPolicy = load('mc_routing_policy', 'balanced');
@@ -398,16 +417,18 @@
     function renderControlRail() {
       const wrap = document.getElementById('agentControlRail');
       if (!wrap) return;
-      wrap.innerHTML = agents.map(a => `
+      wrap.innerHTML = agents.map(a => {
+        const s = normalizeAgentStatus(a.status);
+        return `
         <div class="agent-row">
           <div><strong>${esc(a.name)}</strong><div class="muted">${esc(a.role)}</div></div>
           <select class="select" onchange="setAgentModel('${a.id}', this.value)">
             ${['openai-codex/gpt-5.3-codex','openai/gpt-4.1-mini','openai/gpt-4.1-nano','kimi'].map(m => `<option value="${m}" ${a.model===m?'selected':''}>${m}</option>`).join('')}
           </select>
-          <span class="pill">${a.status || 'online'}</span>
+          <div style="display:flex;align-items:center;gap:.4rem;"><span class="status-dot status-${s}" style="position:static;display:inline-block;"></span><select class="select" onchange="setAgentStatus('${a.id}', this.value)"><option value="working" ${s==='working'?'selected':''}>working</option><option value="idle" ${s==='idle'?'selected':''}>idle</option><option value="offline" ${s==='offline'?'selected':''}>offline</option></select></div>
           <div style="display:flex;gap:.3rem;"><button class="btn" onclick="runAgent('${a.id}')">Run</button><button class="btn" onclick="pauseAgent('${a.id}')">Pause</button></div>
         </div>
-      `).join('');
+      `}).join('');
     }
 
     function renderRoutingSummary() {
@@ -626,9 +647,18 @@
       logActivity('agent_model_updated', `${a.name} engine set to ${model}`);
     }
 
+    window.setAgentStatus = function(agentId, status) {
+      const a = agents.find(x => x.id === agentId); if (!a) return;
+      a.status = normalizeAgentStatus(status);
+      save(KEYS.agents, agents);
+      renderControlRail(); renderOrgChart();
+      logActivity('agent_status_updated', `${a.name} status set to ${a.status}`);
+      renderActivity();
+    }
+
     window.runAgent = function(agentId) {
       const a = agents.find(x => x.id === agentId); if (!a) return;
-      a.status = 'online'; a.lastActive = Date.now();
+      a.status = 'working'; a.lastActive = Date.now();
       save(KEYS.agents, agents);
       renderControlRail(); renderOrgChart();
       logActivity('agent_run', `${a.name} started execution cycle.`);
@@ -637,7 +667,7 @@
 
     window.pauseAgent = function(agentId) {
       const a = agents.find(x => x.id === agentId); if (!a) return;
-      a.status = 'busy';
+      a.status = 'idle';
       save(KEYS.agents, agents);
       renderControlRail(); renderOrgChart();
       logActivity('agent_paused', `${a.name} paused for steering.`);
@@ -796,9 +826,17 @@
       renderBrain(); renderMetrics();
     }
 
+    function normalizeAgentStatus(status) {
+      const s = (status || '').toLowerCase();
+      if (s === 'online' || s === 'working' || s === 'active') return 'working';
+      if (s === 'busy' || s === 'idle' || s === 'paused') return 'idle';
+      if (s === 'offline') return 'offline';
+      return 'idle';
+    }
+
     function mkAgent(role, description, division) {
       return {
-        id: uid(), name: role, role, division, model: 'gpt-5.3-codex', status: 'online', photo: '',
+        id: uid(), name: role, role, division, model: 'gpt-5.3-codex', status: 'idle', photo: '',
         capabilities: ['Planning', 'Execution', 'Reporting'],
         strengths: ['Structured thinking', 'Fast synthesis'],
         weaknesses: ['Needs clear constraints'],
