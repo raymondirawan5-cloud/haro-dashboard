@@ -33,7 +33,16 @@ health_check() {
     return 0
   fi
 
-  curl -fsS --max-time 10 "$url" >/dev/null
+  local attempt=1
+  local max_attempts=12
+  while [[ $attempt -le $max_attempts ]]; do
+    if curl -fsS --max-time 10 "$url" >/dev/null; then
+      return 0
+    fi
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+  return 1
 }
 
 info "repo: $REPO_DIR"
