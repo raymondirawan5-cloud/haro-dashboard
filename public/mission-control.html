@@ -382,16 +382,16 @@
     let decisions = load(KEYS.decisions, []);
     let brain = load(KEYS.brain, defaultBrain);
     let activity = load(KEYS.activity, [{ ts: Date.now(), type: 'init', text: 'RayOS v2 initialized.' }]);
-    state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
-    agents = agents.map(a => ({ ...a, status: normalizeAgentStatus(a.status), statusMode: a.statusMode || 'auto' }));
-    applyRoutingPolicy();
-    let activeTab = 'dashboard';
-    let activeAgentId = null;
     let routingPolicy = load('mc_routing_policy', 'auto');
     let queue = load('mc_queue', [
       { id: uid(), task: 'Audit today priorities and close dead tasks', status: 'queued', assignedTo: null, createdAt: Date.now() - 3600000 },
       { id: uid(), task: 'Prepare weekly founder briefing from activity log', status: 'in-progress', assignedTo: agents[0]?.id || null, createdAt: Date.now() - 1800000 }
     ]);
+    state.priorities = (state.priorities || []).map(p => typeof p === 'string' ? ({ text: p, done: false, declaredAt: Date.now(), completedAt: null }) : ({ ...p, declaredAt: p.declaredAt || Date.now(), completedAt: p.completedAt || null }));
+    agents = agents.map(a => ({ ...a, status: normalizeAgentStatus(a.status), statusMode: a.statusMode || 'auto' }));
+    applyRoutingPolicy();
+    let activeTab = 'dashboard';
+    let activeAgentId = null;
 
     initUI();
     renderAll();
