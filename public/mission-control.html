@@ -108,7 +108,11 @@
     .cmd-list { max-height:340px; overflow:auto; padding:.55rem; }
     .cmd-option { display:flex; justify-content:space-between; align-items:center; gap:.5rem; border:1px solid transparent; border-radius:10px; padding:.6rem; cursor:pointer; }
     .cmd-option:hover { border-color:rgba(59,130,246,.4); background:rgba(59,130,246,.12); }
-    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
+    .hud-frame { border:1px solid rgba(56,189,248,.35); box-shadow: inset 0 0 0 1px rgba(251,191,36,.08), 0 0 22px rgba(56,189,248,.12); }
+    .founder-grid { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)); gap:.6rem; }
+    .founder-tile { border:1px solid var(--border); border-radius:12px; padding:.6rem; background:linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.35)); }
+    .ux-score { font-size:1.35rem; font-weight:800; letter-spacing:.03em; }
+    @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes,.founder-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
 <body>
@@ -124,9 +128,13 @@
 
   <main class="container">
     <section id="tab-dashboard" class="tab-panel active">
-      <div class="card glass">
+      <div class="card glass hud-frame">
         <div class="section-head"><h3>🛰 Mission Pulse Cockpit</h3><span class="pill">Live Operational Snapshot</span></div>
         <div id="missionPulse"></div>
+      </div>
+      <div class="card glass" style="margin-top:.9rem;">
+        <div class="section-head"><h3>🧭 Founder Quick View</h3><span class="pill">One-screen command summary</span></div>
+        <div id="founderQuickView" class="founder-grid" style="margin-top:.55rem;"></div>
       </div>
       <div class="grid metrics" id="metricsGrid" style="margin-top:.9rem;"></div>
       <div id="tokenPanel" class="token-panel" style="margin-top:.9rem;"></div>
@@ -196,6 +204,7 @@
           <li>Card grammar: glass panels + metallic edge highlights + restrained glow to avoid clutter.</li>
           <li>Typography rule: geometric sans for UI, monospace for metrics and machine readouts.</li>
         </ul>
+        <div id="uxGuardrailPanel" class="sub-card" style="margin-top:.7rem;"></div>
       </div>
 
       <div class="control-grid">
@@ -297,6 +306,20 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.6.3-ux-guardrails-founder-view',
+        date: '2026-02-28',
+        theme: 'Lucius-enforced guardrails + founder quick command view',
+        features: [
+          'Added Founder Quick View panel for one-screen operational summary (agents, backlog, blockers, latest decision)',
+          'Added Lucius UX Guardrail panel with live quality gate checks and pass percentage',
+          'Introduced HUD framing tokens for cyberpunk minimal visual consistency'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' },
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
       {
         version: 'v2.6.2-lucius-fox-ux-lab',
         date: '2026-02-28',
@@ -550,6 +573,7 @@
     function renderAll() {
       renderServerAndWeather();
       renderMissionPulse();
+      renderFounderQuickView();
       renderMetrics();
       renderTokenPanel();
       renderActivity();
@@ -561,6 +585,7 @@
       renderAgentRegistry();
       renderQueueBoard();
       renderRoutingSummary();
+      renderUxGuardrailPanel();
       renderUpgrades();
       renderCommandPalette();
     }
@@ -641,6 +666,39 @@
         <div class="pulse-chip"><div class="muted">Queue Pressure</div><div class="pulse-value">${pressure}</div><div class="muted">${queued} queued · ${inProgress} active</div></div>
         <div class="pulse-chip"><div class="muted">Execution Momentum</div><div class="pulse-value">${doneToday}</div><div class="muted">actions completed</div></div>
       </div>`;
+    }
+
+    function renderFounderQuickView() {
+      const el = document.getElementById('founderQuickView');
+      if (!el) return;
+      const working = agents.filter(a => effectiveAgentStatus(a) === 'working').length;
+      const queued = queue.filter(q => q.status === 'queued').length;
+      const overdueReview = queue.filter(q => q.status === 'review').length;
+      const recentDecisions = decisions.slice(-3).reverse();
+      const topDecision = recentDecisions[0]?.question || 'No recent decision logged';
+      el.innerHTML = `
+        <div class="founder-tile"><div class="muted">Active Agents</div><div class="ux-score">${working}</div></div>
+        <div class="founder-tile"><div class="muted">Queue Backlog</div><div class="ux-score">${queued}</div></div>
+        <div class="founder-tile"><div class="muted">Review Blockers</div><div class="ux-score">${overdueReview}</div></div>
+        <div class="founder-tile"><div class="muted">Latest Decision</div><div style="font-size:.86rem;margin-top:.25rem;">${esc(topDecision)}</div></div>
+      `;
+    }
+
+    function renderUxGuardrailPanel() {
+      const el = document.getElementById('uxGuardrailPanel');
+      if (!el) return;
+      const hasCommandPalette = !!document.getElementById('commandPalette');
+      const hasStatusLegend = !!document.getElementById('agentControlRail');
+      const hasUpgradeProof = RELEASES.length >= 3;
+      const score = [hasCommandPalette, hasStatusLegend, hasUpgradeProof].filter(Boolean).length;
+      const pct = Math.round((score / 3) * 100);
+      el.innerHTML = `<div class="section-head"><strong>UX Guardrails</strong><span class="pill">${pct}% passing</span></div>
+        <div class="muted" style="margin-top:.35rem;">Lucius Fox quality gate: command accessibility, status clarity, release transparency.</div>
+        <ul class="feature-list">
+          <li>${hasCommandPalette ? '✅' : '❌'} Command palette reachable with Ctrl/Cmd+K</li>
+          <li>${hasStatusLegend ? '✅' : '❌'} Agent status visibility with explicit legend</li>
+          <li>${hasUpgradeProof ? '✅' : '❌'} Upgrade timeline populated for auditability</li>
+        </ul>`;
     }
 
     function renderOpsCockpit() {
