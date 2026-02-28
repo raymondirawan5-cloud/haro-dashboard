@@ -121,6 +121,7 @@
     .trend-bar { flex:1; min-width:12px; border-radius:8px 8px 4px 4px; background:linear-gradient(180deg, rgba(34,211,238,.95), rgba(37,99,235,.6)); box-shadow:0 0 10px rgba(34,211,238,.25); }
     .toast { position:fixed; right:18px; bottom:18px; z-index:120; padding:.65rem .8rem; border-radius:12px; border:1px solid rgba(34,211,238,.35); background:rgba(2,6,23,.92); color:#dbeafe; box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; transform:translateY(8px); pointer-events:none; transition:all .18s ease; }
     .toast.show { opacity:1; transform:translateY(0); }
+    .founder-mode .advanced-only { display:none !important; }
     @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes,.founder-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
@@ -130,6 +131,7 @@
     <nav id="tabs" class="tabs"></nav>
     <div class="right">
       <input id="searchInput" class="search" placeholder="Search (Ctrl/Cmd + K)">
+      <button class="btn" id="founderModeToggle">Founder Mode: OFF</button>
       <div id="weatherMini" class="status-wrap">🌤 Jakarta · --°C · Unavailable</div>
       <div class="status-wrap"><span id="statusDot" class="dot"></span><span id="serverState">Server: Offline</span></div>
     </div>
@@ -138,7 +140,7 @@
   <main class="container">
     <section id="tab-dashboard" class="tab-panel active">
       <div class="card glass hud-frame">
-        <div class="section-head"><h3>🛰 Mission Pulse Cockpit</h3><span class="pill">Live Operational Snapshot</span></div>
+        <div class="section-head"><h3>🛰 Mission Pulse Cockpit</h3><span class="pill">Live Operational Snapshot</span><span id="freshnessMission" class="pill">updated just now</span></div>
         <div id="missionPulse"></div>
       </div>
       <div class="card glass" style="margin-top:.9rem;">
@@ -200,12 +202,12 @@
         <div class="muted">Refine voice, boundaries, and behavior principles for SOUL.md with one-click optimization.</div>
       </div>
 
-      <div class="card glass" style="margin-top:.9rem;">
+      <div class="card glass advanced-only" style="margin-top:.9rem;">
         <div class="section-head"><h3>🗂 Role-based Agent Registry</h3><span class="pill">Engine Assignment</span></div>
         <div id="agentRegistry" class="registry-grid" style="margin-top:.6rem;"></div>
       </div>
 
-      <div class="card glass" style="margin-top:.9rem;">
+      <div class="card glass advanced-only" style="margin-top:.9rem;">
         <div class="section-head"><h3>🦊 Lucius Fox UX Lab</h3><span class="pill">Minimalist Cyberpunk HUD</span></div>
         <div class="muted" style="margin-top:.4rem;">Design direction: dark immersive base, neon luminescence, HUD gauges, cinematic depth, minimalist information density.</div>
         <ul class="feature-list" style="margin-top:.6rem;">
@@ -217,7 +219,7 @@
         <div id="luciusReviewPanel" class="sub-card" style="margin-top:.7rem;"></div>
       </div>
 
-      <div class="control-grid">
+      <div class="control-grid advanced-only">
         <div class="card glass">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
             <h3>🎛 Agent Control Rail</h3>
@@ -243,7 +245,7 @@
         </div>
       </div>
 
-      <div class="card glass" style="margin-top:.9rem;">
+      <div class="card glass advanced-only" style="margin-top:.9rem;">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
           <h3>📥 Execution Queue</h3>
           <button class="btn" onclick="addQueueTask()">+ Queue Task</button>
@@ -254,7 +256,7 @@
 
     <section id="tab-analytics" class="tab-panel">
       <div class="card glass hud-frame">
-        <div class="section-head"><h3>📈 Token Analytics</h3><span class="pill">Estimated usage intelligence</span></div>
+        <div class="section-head"><h3>📈 Token Analytics</h3><span class="pill">Estimated usage intelligence</span><span id="freshnessAnalytics" class="pill">updated just now</span></div>
         <div class="muted" style="margin-top:.35rem;">Model efficiency, agent burn, and cost pressure signals to optimize routing automatically.</div>
         <div id="tokenAnalyticsSummary" class="founder-grid" style="margin-top:.7rem;"></div>
         <div id="tokenBudgetAlerts" class="sub-card" style="margin-top:.7rem;"></div>
@@ -341,6 +343,20 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.4-founder-mode-apple-pass',
+        date: '2026-02-28',
+        theme: 'Apple-style seamless pass: founder mode + freshness states',
+        features: [
+          'Added Founder Mode toggle for progressive disclosure (clean executive view by default)',
+          'Added data freshness badges on Mission Pulse and Token Analytics sections',
+          'Reduced decision friction by hiding advanced controls unless needed'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' },
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
       {
         version: 'v2.7.3-seamless-flow-lucius-pass',
         date: '2026-02-28',
@@ -530,6 +546,7 @@
     applyRoutingPolicy();
     let activeTab = 'dashboard';
     let activeAgentId = null;
+    let founderMode = load('mc_founder_mode', false);
 
     initUI();
     renderAll();
@@ -657,6 +674,29 @@
       document.getElementById('optimizeSoulBtn').onclick = optimizeSoulText;
       document.getElementById('soulModal').onclick = e => { if (e.target.id === 'soulModal') document.getElementById('soulModal').classList.remove('open'); };
       document.getElementById('copyUpgradeSummaryBtn').onclick = copyLatestUpgrade;
+      document.getElementById('founderModeToggle').onclick = toggleFounderMode;
+      applyFounderMode();
+    }
+
+    function applyFounderMode() {
+      document.body.classList.toggle('founder-mode', !!founderMode);
+      const btn = document.getElementById('founderModeToggle');
+      if (btn) btn.textContent = `Founder Mode: ${founderMode ? 'ON' : 'OFF'}`;
+    }
+
+    function toggleFounderMode() {
+      founderMode = !founderMode;
+      save('mc_founder_mode', founderMode);
+      applyFounderMode();
+      showToast(`Founder Mode ${founderMode ? 'ON' : 'OFF'}`);
+    }
+
+    function renderFreshnessBadges() {
+      const now = new Date().toLocaleTimeString();
+      const m = document.getElementById('freshnessMission');
+      const a = document.getElementById('freshnessAnalytics');
+      if (m) m.textContent = `updated ${now}`;
+      if (a) a.textContent = `updated ${now}`;
     }
 
     function renderAll() {
@@ -679,6 +719,7 @@
       renderLuciusReviewPanel();
       renderUpgrades();
       renderCommandPalette();
+      renderFreshnessBadges();
     }
 
     function renderControlRail() {
