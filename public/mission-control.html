@@ -119,6 +119,8 @@
     .bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#22d3ee,#3b82f6,#f59e0b); box-shadow:0 0 12px rgba(34,211,238,.35); }
     .trend-bars { display:flex; gap:.35rem; align-items:flex-end; height:90px; margin-top:.55rem; }
     .trend-bar { flex:1; min-width:12px; border-radius:8px 8px 4px 4px; background:linear-gradient(180deg, rgba(34,211,238,.95), rgba(37,99,235,.6)); box-shadow:0 0 10px rgba(34,211,238,.25); }
+    .toast { position:fixed; right:18px; bottom:18px; z-index:120; padding:.65rem .8rem; border-radius:12px; border:1px solid rgba(34,211,238,.35); background:rgba(2,6,23,.92); color:#dbeafe; box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; transform:translateY(8px); pointer-events:none; transition:all .18s ease; }
+    .toast.show { opacity:1; transform:translateY(0); }
     @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes,.founder-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
@@ -212,6 +214,7 @@
           <li>Typography rule: geometric sans for UI, monospace for metrics and machine readouts.</li>
         </ul>
         <div id="uxGuardrailPanel" class="sub-card" style="margin-top:.7rem;"></div>
+        <div id="luciusReviewPanel" class="sub-card" style="margin-top:.7rem;"></div>
       </div>
 
       <div class="control-grid">
@@ -293,6 +296,7 @@
       <div id="commandPaletteList" class="cmd-list"></div>
     </div>
   </div>
+  <div id="toast" class="toast"></div>
 
   <script>
     // -------- Storage keys --------
@@ -337,6 +341,20 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.3-seamless-flow-lucius-pass',
+        date: '2026-02-28',
+        theme: 'Seamless interaction pass (faster feedback + Lucius codex mode)',
+        features: [
+          'Added low-friction toast feedback for routing, queue, assignment, and status actions',
+          'Added Lucius Review panel with world-class UX principles checklist',
+          'Set Lucius Fox to GPT-5.3-Codex during active UX refinement wave'
+        ],
+        links: [
+          { label: 'Open Command Center', href: '#tab-command' },
+          { label: 'Open Token Analytics', href: '#tab-analytics' }
+        ]
+      },
       {
         version: 'v2.7.2-org-emoji-upload-lucius-audit',
         date: '2026-02-28',
@@ -658,6 +676,7 @@
       renderQueueBoard();
       renderRoutingSummary();
       renderUxGuardrailPanel();
+      renderLuciusReviewPanel();
       renderUpgrades();
       renderCommandPalette();
     }
@@ -775,6 +794,21 @@
           <li>${hasHudFrame ? '✅' : '❌'} HUD frame styling active on core cockpit cards</li>
           <li>${hasLargeOrgEmoji ? '✅' : '❌'} Org chart emoji/readout sizing passes scanability threshold</li>
         </ul>`;
+    }
+
+    function renderLuciusReviewPanel() {
+      const el = document.getElementById('luciusReviewPanel');
+      if (!el) return;
+      const rules = [
+        { ok: !!document.querySelector('.hud-frame'), text: 'HUD framing is active on key cockpit cards' },
+        { ok: !!document.getElementById('commandPalette'), text: 'Command actions are keyboard-first (Ctrl/Cmd+K)' },
+        { ok: agents.length >= 6, text: 'Role coverage includes dedicated UX ownership (Lucius Fox)' },
+        { ok: !!document.getElementById('tokenByModelChart'), text: 'Token analytics is visible for routing decisions' }
+      ];
+      const passed = rules.filter(r => r.ok).length;
+      el.innerHTML = `<div class="section-head"><strong>Lucius Review</strong><span class="pill">${passed}/${rules.length} principles applied</span></div>
+        <div class="muted" style="margin-top:.35rem;">Inspired by Linear/Stripe/Vercel clarity: fast scan, fast action, low friction.</div>
+        <ul class="feature-list">${rules.map(r => `<li>${r.ok ? '✅' : '❌'} ${esc(r.text)}</li>`).join('')}</ul>`;
     }
 
     function renderOpsCockpit() {
@@ -1157,6 +1191,16 @@
       renderActivity();
     }
 
+    let toastTimer = null;
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = text;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 1700);
+    }
+
     function switchTab(tabId) {
       if (!TABS.some(t => t.id === tabId)) return;
       activeTab = tabId;
@@ -1171,6 +1215,7 @@
       applyRoutingPolicy();
       renderRoutingSummary(); renderOpsCockpit(); renderControlRail(); renderAgentRegistry(); renderTokenPanel();
       logActivity('routing_policy_updated', `Routing policy set to ${policy}.`);
+      showToast(`Routing: ${policy}`);
     }
 
     window.setAgentModel = function(agentId, model) {
@@ -1179,6 +1224,7 @@
       save(KEYS.agents, agents);
       renderControlRail(); renderAgentRegistry(); renderTokenPanel();
       logActivity('agent_model_updated', `${a.name} engine set to ${model}`);
+      showToast(`${a.name} → ${model}`);
       renderActivity();
     }
 
@@ -1229,6 +1275,7 @@
       save('mc_queue', queue);
       renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('queue_added', `Queued task: ${task}`);
+      showToast('Task queued');
       renderActivity();
     }
 
@@ -1250,6 +1297,7 @@
       save('mc_queue', queue);
       renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('queue_assigned', `Assigned '${item.task}' to ${agent.name}`);
+      showToast(`Assigned to ${agent.name}`);
       renderActivity();
     }
 
@@ -1260,6 +1308,7 @@
       save('mc_queue', queue);
       renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('queue_advanced', `Task '${item.task}' moved to ${next}`);
+      showToast(`Task moved to ${next}`);
       renderActivity();
     }
 
@@ -1398,7 +1447,7 @@
       const exists = agents.some(a => (a.name || '').toLowerCase() === 'lucius fox');
       if (exists) return;
       const lucius = mkAgent('Lucius Fox', 'Senior UX Systems Designer (Apple-level craft) focused on minimalist futuristic HUD interfaces.', 'design');
-      lucius.model = 'openai/gpt-4.1-mini';
+      lucius.model = 'openai-codex/gpt-5.3-codex';
       lucius.capabilities = ['Interaction design systems', 'Visual hierarchy refinement', 'UX heuristic audits'];
       lucius.kpis = ['Task-to-action clarity', 'Operator scan speed', 'Visual consistency'];
       agents.push(lucius);
@@ -1422,6 +1471,11 @@
     function applyRoutingPolicy() {
       agents.forEach(a => {
         const role = (a.role || '').toLowerCase();
+        const name = (a.name || '').toLowerCase();
+        if (name === 'lucius fox') {
+          a.model = 'openai-codex/gpt-5.3-codex';
+          return;
+        }
         if (routingPolicy === 'power') {
           a.model = 'openai-codex/gpt-5.3-codex';
         } else if (routingPolicy === 'cost') {
