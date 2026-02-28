@@ -352,6 +352,19 @@
 
     const RELEASES = [
       {
+        version: 'v2.7.7-weather-reliability-hotfix',
+        date: '2026-02-28',
+        theme: 'Weather widget reliability + stale-value fallback',
+        features: [
+          'Added retry + longer timeout for weather API fetch to reduce false Unavailable states',
+          'Weather now refreshes on window focus/visibility return for immediate update',
+          'Preserves last known temperature as stale fallback instead of dropping to -- instantly'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ]
+      },
+      {
         version: 'v2.7.6-live-health-weather-fix',
         date: '2026-02-28',
         theme: 'Status/weather reliability fix for HTTPS dashboard',
@@ -586,11 +599,13 @@
     initUI();
     renderAll();
     checkServerStatus();
-    fetchWeather();
+    fetchWeather(true);
     setInterval(checkServerStatus, 60 * 1000);
-    setInterval(fetchWeather, 15 * 60 * 1000);
+    setInterval(fetchWeather, 5 * 60 * 1000);
     setInterval(syncToServer, 5 * 60 * 1000);
     window.addEventListener('beforeunload', syncOnUnload);
+    window.addEventListener('focus', () => fetchWeather());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchWeather(); });
 
     // -------- Networking: timeout + retry --------
     async function fetchWithTimeout(url, options = {}, timeoutMs = 3000) {
@@ -615,14 +630,24 @@
       renderServerAndWeather();
     }
 
-    async function fetchWeather() {
+    async function fetchWeather(force = false) {
+      const tryFetch = async () => fetchWithTimeout(`${API_BASE}/weather?city=Jakarta`, {}, 6500);
       try {
-        const res = await fetchWithTimeout(`${API_BASE}/weather?city=Jakarta`);
+        let res;
+        try { res = await tryFetch(); } catch { res = await tryFetch(); }
         if (!res.ok) throw new Error('weather failed');
         const w = await res.json();
-        state.weather = { city: w.city || 'Jakarta', temp: w.temperature ?? '--', condition: w.condition ?? 'Unavailable' };
+        const temp = (w.temperature ?? null);
+        if (temp === null || temp === '--') throw new Error('weather empty');
+        state.weather = { city: w.city || 'Jakarta', temp, condition: w.condition ?? 'Unavailable' };
       } catch {
-        state.weather = { city: 'Jakarta', temp: '--', condition: 'Unavailable' };
+        const prev = state.weather || {};
+        const hasPrev = prev.temp !== undefined && prev.temp !== null && prev.temp !== '--';
+        if (!hasPrev || force) {
+          state.weather = { city: 'Jakarta', temp: '--', condition: 'Unavailable' };
+        } else {
+          state.weather = { city: prev.city || 'Jakarta', temp: prev.temp, condition: `${prev.condition || 'Unavailable'} (stale)` };
+        }
       }
       save(KEYS.state, state);
       renderServerAndWeather();
