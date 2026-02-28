@@ -112,6 +112,11 @@
     .founder-grid { display:grid; grid-template-columns:repeat(4,minmax(140px,1fr)); gap:.6rem; }
     .founder-tile { border:1px solid var(--border); border-radius:12px; padding:.6rem; background:linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.35)); }
     .ux-score { font-size:1.35rem; font-weight:800; letter-spacing:.03em; }
+    .analytics-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; margin-top:.8rem; }
+    .chart-list { display:grid; gap:.45rem; }
+    .chart-row { display:grid; grid-template-columns:130px 1fr 86px; gap:.5rem; align-items:center; }
+    .bar-track { height:10px; border-radius:999px; background:rgba(148,163,184,.2); overflow:hidden; }
+    .bar-fill { height:100%; border-radius:999px; background:linear-gradient(90deg,#22d3ee,#3b82f6,#f59e0b); box-shadow:0 0 12px rgba(34,211,238,.35); }
     @media (max-width:980px){ .header{grid-template-columns:1fr;} .right{justify-content:flex-start;} .metrics,.two-col,.control-grid,.pulse-grid,.command-cockpit-grid,.registry-grid,.token-panel,.queue-lanes,.founder-grid{grid-template-columns:1fr;} .agent-row{grid-template-columns:1fr;} .pulse-strip{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
@@ -242,6 +247,24 @@
       </div>
     </section>
 
+    <section id="tab-analytics" class="tab-panel">
+      <div class="card glass hud-frame">
+        <div class="section-head"><h3>📈 Token Analytics</h3><span class="pill">Estimated usage intelligence</span></div>
+        <div class="muted" style="margin-top:.35rem;">Model efficiency, agent burn, and cost pressure signals to optimize routing automatically.</div>
+        <div id="tokenAnalyticsSummary" class="founder-grid" style="margin-top:.7rem;"></div>
+        <div class="analytics-grid">
+          <div class="sub-card">
+            <strong>By Model</strong>
+            <div id="tokenByModelChart" class="chart-list" style="margin-top:.55rem;"></div>
+          </div>
+          <div class="sub-card">
+            <strong>By Agent</strong>
+            <div id="tokenByAgentChart" class="chart-list" style="margin-top:.55rem;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="tab-upgrades" class="tab-panel">
       <div class="card glass">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
@@ -278,6 +301,7 @@
     const TABS = [
       { id: 'dashboard', label: '📊 Dashboard' },
       { id: 'command', label: '🏢 Command Center' },
+      { id: 'analytics', label: '📈 Token Analytics' },
       { id: 'upgrades', label: '🚀 Upgrades' }
     ];
 
@@ -306,6 +330,20 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.7.0-token-analytics-charts',
+        date: '2026-02-28',
+        theme: 'Token analytics page with model/agent charting',
+        features: [
+          'Added dedicated Token Analytics tab with summary cards and chart-based usage breakdown',
+          'Introduced estimated token + cost intelligence by model and by agent for routing optimization',
+          'Improved operator visibility into burn pressure so model assignment decisions are evidence-based'
+        ],
+        links: [
+          { label: 'Open Token Analytics', href: '#tab-analytics' },
+          { label: 'Open Command Center', href: '#tab-command' }
+        ]
+      },
       {
         version: 'v2.6.3-ux-guardrails-founder-view',
         date: '2026-02-28',
@@ -576,6 +614,7 @@
       renderFounderQuickView();
       renderMetrics();
       renderTokenPanel();
+      renderTokenAnalytics();
       renderActivity();
       renderPriorities();
       renderOrgChart();
@@ -835,6 +874,76 @@
       wrap.innerHTML = cards.map(c => `<div class="token-chip"><div class="muted">${c.label}</div><div class="pulse-value">${c.value}</div><div class="muted">${c.sub}</div></div>`).join('');
     }
 
+    function estimateEventTokens(type) {
+      const map = {
+        queue_added: 120,
+        queue_assigned: 180,
+        queue_advanced: 140,
+        agent_run: 220,
+        agent_paused: 60,
+        agent_task_sent: 260,
+        agent_model_updated: 40,
+        agent_status_updated: 30,
+        routing_policy_updated: 30,
+        command_palette: 20,
+        task_completed: 180,
+        task_added: 70
+      };
+      return map[type] || 90;
+    }
+
+    function modelCostPer1M(model) {
+      if ((model || '').includes('gpt-5.3-codex')) return 15;
+      if ((model || '').includes('gpt-4.1-mini')) return 0.8;
+      if ((model || '').includes('gpt-4.1-nano')) return 0.2;
+      if ((model || '').includes('kimi')) return 2;
+      return 1;
+    }
+
+    function inferAgentFromText(text) {
+      const t = (text || '').toLowerCase();
+      return agents.find(a => t.includes((a.name || '').toLowerCase())) || null;
+    }
+
+    function renderTokenAnalytics() {
+      const summary = document.getElementById('tokenAnalyticsSummary');
+      const byModelEl = document.getElementById('tokenByModelChart');
+      const byAgentEl = document.getElementById('tokenByAgentChart');
+      if (!summary || !byModelEl || !byAgentEl) return;
+
+      const since = Date.now() - (7 * 86400000);
+      const rows = activity.filter(a => a.ts >= since).map(a => {
+        const agent = inferAgentFromText(a.text);
+        const model = agent?.model || 'system';
+        const base = estimateEventTokens(a.type);
+        const mult = model.includes('gpt-5.3-codex') ? 2.6 : model.includes('mini') ? 1 : model.includes('nano') ? 0.55 : model.includes('kimi') ? 1.4 : 0.7;
+        const tokens = Math.round(base * mult);
+        return { model, agent: agent?.name || 'System', tokens };
+      });
+
+      const totalTokens = rows.reduce((s, r) => s + r.tokens, 0);
+      const totalCost = rows.reduce((s, r) => s + ((r.tokens / 1_000_000) * modelCostPer1M(r.model)), 0);
+      const avgPerEvent = rows.length ? Math.round(totalTokens / rows.length) : 0;
+
+      const byModel = Object.entries(rows.reduce((acc, r) => (acc[r.model] = (acc[r.model] || 0) + r.tokens, acc), {}))
+        .sort((a,b) => b[1]-a[1]);
+      const byAgent = Object.entries(rows.reduce((acc, r) => (acc[r.agent] = (acc[r.agent] || 0) + r.tokens, acc), {}))
+        .sort((a,b) => b[1]-a[1]).slice(0,8);
+
+      summary.innerHTML = `
+        <div class="founder-tile"><div class="muted">7d Tokens</div><div class="ux-score">${totalTokens.toLocaleString()}</div></div>
+        <div class="founder-tile"><div class="muted">Est. Cost (7d)</div><div class="ux-score">$${totalCost.toFixed(2)}</div></div>
+        <div class="founder-tile"><div class="muted">Avg / Event</div><div class="ux-score">${avgPerEvent}</div></div>
+        <div class="founder-tile"><div class="muted">Events Analyzed</div><div class="ux-score">${rows.length}</div></div>
+      `;
+
+      const maxM = Math.max(1, ...byModel.map(x => x[1]));
+      byModelEl.innerHTML = byModel.map(([name,val]) => `<div class="chart-row"><div class="muted">${esc(name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(3, Math.round((val/maxM)*100))}%"></div></div><div class="muted" style="text-align:right;">${val.toLocaleString()}</div></div>`).join('') || '<div class="muted">No model usage yet.</div>';
+
+      const maxA = Math.max(1, ...byAgent.map(x => x[1]));
+      byAgentEl.innerHTML = byAgent.map(([name,val]) => `<div class="chart-row"><div class="muted">${esc(name)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(3, Math.round((val/maxA)*100))}%"></div></div><div class="muted" style="text-align:right;">${val.toLocaleString()}</div></div>`).join('') || '<div class="muted">No agent usage yet.</div>';
+    }
+
     function renderActivity() {
       const q = document.getElementById('searchInput').value.trim().toLowerCase();
       const type = document.getElementById('activityTypeFilter')?.value || 'all';
@@ -953,6 +1062,7 @@
       { id: 'jump-command', label: 'Jump to Command Center', run: () => switchTab('command') },
       { id: 'jump-dashboard', label: 'Jump to Dashboard', run: () => switchTab('dashboard') },
       { id: 'jump-upgrades', label: 'Jump to Upgrades', run: () => switchTab('upgrades') },
+      { id: 'jump-analytics', label: 'Jump to Token Analytics', run: () => switchTab('analytics') },
       { id: 'queue-add', label: 'Add Queue Task', run: () => addQueueTask() },
       { id: 'focus-search', label: 'Focus Search Input', run: () => document.getElementById('searchInput')?.focus() },
       { id: 'routing-auto', label: 'Set Routing: Auto Router', run: () => setRoutingPolicy('auto') },
