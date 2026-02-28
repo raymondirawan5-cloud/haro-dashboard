@@ -561,6 +561,34 @@
       `}).join('');
     }
 
+    function renderAgentRegistry() {
+      const wrap = document.getElementById('agentRegistry');
+      if (!wrap) return;
+      wrap.innerHTML = agents.map(a => {
+        const s = effectiveAgentStatus(a);
+        return `<div class="registry-card">
+          <div style="display:flex;justify-content:space-between;gap:.4rem;align-items:center;">
+            <strong>${esc(a.name)}</strong>
+            <span class="pill">${esc(a.division || 'ops')}</span>
+          </div>
+          <div class="muted" style="margin:.3rem 0 .5rem;">${esc(a.role)}</div>
+          <div class="checklist-row" style="margin-bottom:.4rem;">
+            <span class="status-dot status-${s}" style="position:static;display:inline-block;"></span>
+            <span class="muted">${s}</span>
+          </div>
+          <label class="muted">Engine</label>
+          <select class="select" style="width:100%;margin-top:.25rem;" onchange="setAgentModel('${a.id}', this.value)">
+            ${['openai-codex/gpt-5.3-codex','openai/gpt-4.1-mini','openai/gpt-4.1-nano','kimi'].map(m => `<option value="${m}" ${a.model===m?'selected':''}>${m}</option>`).join('')}
+          </select>
+          <div class="action-row" style="margin-top:.45rem;">
+            <button class="btn" onclick="runAgent('${a.id}')">Run</button>
+            <button class="btn" onclick="pauseAgent('${a.id}')">Pause</button>
+            <button class="btn" onclick="openAgent('${a.id}')">Open</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
     function renderRoutingSummary() {
       const map = {
         auto: { title: 'Auto Router', text: 'Automatically assigns engines by role/task profile: power models for architecture/coding, lighter models for routine work.' },
@@ -618,11 +646,27 @@
     function renderQueueBoard() {
       const wrap = document.getElementById('queueBoard');
       if (!wrap) return;
-      const items = [...queue].sort((a,b)=>b.createdAt-a.createdAt);
-      wrap.innerHTML = items.map(item => {
-        const assignee = agents.find(a=>a.id===item.assignedTo)?.name || 'Unassigned';
-        return `<div class="queue-item"><div style="display:flex;justify-content:space-between;gap:.5rem;align-items:center;flex-wrap:wrap;"><strong>${esc(item.task)}</strong><span class="pill">${esc(item.status)}</span></div><div class="muted" style="margin:.35rem 0;">Owner: ${esc(assignee)}</div><div style="display:flex;gap:.4rem;flex-wrap:wrap;"><button class="btn" onclick="assignQueue('${item.id}')">Assign</button><button class="btn" onclick="advanceQueue('${item.id}')">Advance</button></div></div>`;
-      }).join('') || '<div class="muted">Queue empty.</div>';
+      const lanes = [
+        { key: 'queued', label: 'Queued' },
+        { key: 'in-progress', label: 'In Progress' },
+        { key: 'review', label: 'Review' },
+        { key: 'done', label: 'Done' }
+      ];
+      wrap.innerHTML = `<div class="queue-lanes">${lanes.map(lane => {
+        const items = queue.filter(q => q.status === lane.key).sort((a,b)=>b.createdAt-a.createdAt);
+        const cards = items.map(item => {
+          return `<div class="queue-item">
+            <strong>${esc(item.task)}</strong>
+            <div class="muted" style="margin:.35rem 0;">Owner</div>
+            <select class="select" style="width:100%;" onchange="assignQueue('${item.id}', this.value)">
+              <option value="">Unassigned</option>
+              ${agents.map(a => `<option value="${a.id}" ${item.assignedTo===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
+            </select>
+            <div class="action-row" style="margin-top:.45rem;"><button class="btn" onclick="advanceQueue('${item.id}')">Advance</button></div>
+          </div>`;
+        }).join('') || '<div class="muted">No tasks</div>';
+        return `<div class="queue-lane"><h4>${lane.label} · ${items.length}</h4>${cards}</div>`;
+      }).join('')}</div>`;
     }
 
     function renderUpgrades() {
@@ -828,8 +872,11 @@
       { id: 'queue-add', label: 'Add Queue Task', run: () => addQueueTask() },
       { id: 'focus-search', label: 'Focus Search Input', run: () => document.getElementById('searchInput')?.focus() },
       { id: 'routing-auto', label: 'Set Routing: Auto Router', run: () => setRoutingPolicy('auto') },
+      { id: 'routing-cost', label: 'Set Routing: Cost Saver', run: () => setRoutingPolicy('cost') },
       { id: 'routing-power', label: 'Set Routing: Power Mode', run: () => setRoutingPolicy('power') },
-      { id: 'routing-balanced', label: 'Set Routing: Balanced', run: () => setRoutingPolicy('balanced') }
+      { id: 'routing-balanced', label: 'Set Routing: Balanced', run: () => setRoutingPolicy('balanced') },
+      { id: 'queue-advance-top', label: 'Advance Newest Queue Item', run: () => { const item=[...queue].sort((a,b)=>b.createdAt-a.createdAt).find(x=>x.status!=='done'); if (item) advanceQueue(item.id); } },
+      { id: 'queue-assign-top', label: 'Assign Newest Queue Item', run: () => { const item=[...queue].sort((a,b)=>b.createdAt-a.createdAt).find(x=>!x.assignedTo && x.status!=='done'); const agent=agents.find(a=>effectiveAgentStatus(a)!=='offline'); if (item && agent) assignQueue(item.id, agent.id); } }
     ];
 
     window.openCommandPalette = function() {
@@ -873,7 +920,7 @@
       routingPolicy = policy;
       save('mc_routing_policy', routingPolicy);
       applyRoutingPolicy();
-      renderRoutingSummary(); renderOpsCockpit(); renderControlRail();
+      renderRoutingSummary(); renderOpsCockpit(); renderControlRail(); renderAgentRegistry(); renderTokenPanel();
       logActivity('routing_policy_updated', `Routing policy set to ${policy}.`);
     }
 
@@ -881,7 +928,9 @@
       const a = agents.find(x => x.id === agentId); if (!a) return;
       a.model = model;
       save(KEYS.agents, agents);
+      renderControlRail(); renderAgentRegistry(); renderTokenPanel();
       logActivity('agent_model_updated', `${a.name} engine set to ${model}`);
+      renderActivity();
     }
 
     window.setAgentStatusMode = function(agentId, mode) {
@@ -889,7 +938,7 @@
       a.statusMode = mode === 'manual' ? 'manual' : 'auto';
       if (a.statusMode === 'auto') a.status = autoDerivedStatus(a);
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
+      renderControlRail(); renderAgentRegistry(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('agent_status_mode', `${a.name} status mode set to ${a.statusMode}`);
       renderActivity();
     }
@@ -899,7 +948,7 @@
       a.statusMode = 'manual';
       a.status = normalizeAgentStatus(status);
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
+      renderControlRail(); renderAgentRegistry(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('agent_status_updated', `${a.name} status set to ${a.status}`);
       renderActivity();
     }
@@ -909,7 +958,7 @@
       a.statusMode = 'manual';
       a.status = 'working'; a.lastActive = Date.now();
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
+      renderControlRail(); renderAgentRegistry(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('agent_run', `${a.name} started execution cycle.`);
       renderActivity();
     }
@@ -919,7 +968,7 @@
       a.statusMode = 'manual';
       a.status = 'idle';
       save(KEYS.agents, agents);
-      renderControlRail(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit();
+      renderControlRail(); renderAgentRegistry(); renderOrgChart(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('agent_paused', `${a.name} paused for steering.`);
       renderActivity();
     }
@@ -929,20 +978,28 @@
       if (!task) return;
       queue.push({ id: uid(), task, status: 'queued', assignedTo: null, createdAt: Date.now() });
       save('mc_queue', queue);
-      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit();
+      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('queue_added', `Queued task: ${task}`);
       renderActivity();
     }
 
-    window.assignQueue = function(id) {
+    window.assignQueue = function(id, agentId) {
       const item = queue.find(x => x.id === id); if (!item) return;
-      const pick = prompt(`Assign to agent (name contains):\n${agents.map(a => `- ${a.name}`).join('\n')}`) || '';
-      const agent = agents.find(a => a.name.toLowerCase().includes(pick.toLowerCase()));
+      if (!agentId) {
+        item.assignedTo = null;
+        item.status = 'queued';
+        save('mc_queue', queue);
+        renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
+        logActivity('queue_assigned', `Unassigned '${item.task}'`);
+        renderActivity();
+        return;
+      }
+      const agent = agents.find(a => a.id === agentId);
       if (!agent) return;
       item.assignedTo = agent.id;
-      item.status = 'in-progress';
+      if (item.status === 'queued') item.status = 'in-progress';
       save('mc_queue', queue);
-      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit();
+      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('queue_assigned', `Assigned '${item.task}' to ${agent.name}`);
       renderActivity();
     }
@@ -952,7 +1009,7 @@
       const next = item.status === 'queued' ? 'in-progress' : item.status === 'in-progress' ? 'review' : 'done';
       item.status = next;
       save('mc_queue', queue);
-      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit();
+      renderQueueBoard(); renderMissionPulse(); renderOpsCockpit(); renderTokenPanel();
       logActivity('queue_advanced', `Task '${item.task}' moved to ${next}`);
       renderActivity();
     }
@@ -1098,12 +1155,19 @@
     }
 
     function applyRoutingPolicy() {
-      if (routingPolicy !== 'auto') return;
       agents.forEach(a => {
         const role = (a.role || '').toLowerCase();
-        if (role.includes('strategy') || role.includes('operations')) a.model = 'openai-codex/gpt-5.3-codex';
-        else if (role.includes('growth') || role.includes('finance')) a.model = 'openai/gpt-4.1-mini';
-        else a.model = 'openai/gpt-4.1-nano';
+        if (routingPolicy === 'power') {
+          a.model = 'openai-codex/gpt-5.3-codex';
+        } else if (routingPolicy === 'cost') {
+          a.model = role.includes('strategy') ? 'openai/gpt-4.1-mini' : 'openai/gpt-4.1-nano';
+        } else if (routingPolicy === 'balanced') {
+          a.model = (role.includes('strategy') || role.includes('operations')) ? 'openai-codex/gpt-5.3-codex' : 'openai/gpt-4.1-mini';
+        } else {
+          if (role.includes('strategy') || role.includes('operations')) a.model = 'openai-codex/gpt-5.3-codex';
+          else if (role.includes('growth') || role.includes('finance')) a.model = 'openai/gpt-4.1-mini';
+          else a.model = 'openai/gpt-4.1-nano';
+        }
       });
       save(KEYS.agents, agents);
     }
