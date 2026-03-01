@@ -327,7 +327,9 @@
       agents: 'mc_agents',
       decisions: 'mc_decisions',
       brain: 'mc_brain',
-      activity: 'mc_activity'
+      activity: 'mc_activity',
+      dailyDungeon: 'mc_daily_dungeon',
+      achievements: 'mc_achievements'
     };
 
     const SERVER_BASE = `${location.protocol}//${location.hostname}:8899`;
@@ -365,6 +367,19 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.8.1-gamification-graphics-expansion',
+        date: '2026-03-01',
+        theme: 'Full gamification graphics expansion',
+        features: [
+          'Added Daily Dungeon system with clear/reroll actions and visual state',
+          'Added Achievement Gallery with icon-style trophy cards and unlock popups',
+          'Extended Solo Leveling panel with deeper progression loops and richer HUD visuals'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ]
+      },
       {
         version: 'v2.8.0-solo-leveling-visual-pack',
         date: '2026-02-28',
@@ -635,6 +650,8 @@
     let activeTab = 'dashboard';
     let activeAgentId = null;
     let founderMode = load('mc_founder_mode', false);
+    let dailyDungeon = load(KEYS.dailyDungeon, null);
+    let achievements = load(KEYS.achievements, []);
 
     initUI();
     renderAll();
@@ -928,13 +945,40 @@
       `;
     }
 
+    function getTodayKey() {
+      return new Date().toISOString().slice(0,10);
+    }
+
+    function ensureDailyDungeon() {
+      const today = getTodayKey();
+      if (dailyDungeon && dailyDungeon.date === today) return;
+      const pool = [
+        'Ship one visible UI improvement',
+        'Close one queue item end-to-end',
+        'Log one major decision with rationale',
+        'Reduce one friction point in command center',
+        'Create one automation that saves 10+ minutes/day'
+      ];
+      dailyDungeon = { date: today, title: pool[Math.floor(Math.random()*pool.length)], completed: false };
+      save(KEYS.dailyDungeon, dailyDungeon);
+    }
+
+    function maybeUnlockAchievement(id, icon, title) {
+      if (achievements.some(a => a.id === id)) return;
+      const a = { id, icon, title, ts: Date.now() };
+      achievements.push(a);
+      save(KEYS.achievements, achievements);
+      showToast(`🏆 Achievement unlocked: ${title}`);
+    }
+
     function renderGamificationPanel() {
       const el = document.getElementById('gamificationPanel');
       if (!el) return;
+      ensureDailyDungeon();
       const weekStart = Date.now() - (7 * 86400000);
       const completed = activity.filter(a => a.ts >= weekStart && (a.type === 'queue_advanced' || a.type === 'task_completed')).length;
       const decisions7d = decisions.filter(d => new Date(d.date).getTime() >= weekStart).length;
-      const xp = Math.max(0, completed * 25 + decisions7d * 40 + queue.filter(q => q.status === 'done').length * 15);
+      const xp = Math.max(0, completed * 25 + decisions7d * 40 + queue.filter(q => q.status === 'done').length * 15 + (dailyDungeon?.completed ? 120 : 0));
       const rank = Math.floor(xp / 300) + 1;
       const inRank = xp % 300;
       const pct = Math.min(100, Math.round((inRank / 300) * 100));
@@ -944,6 +988,12 @@
         { label: 'Decision Mastery', rarity: 'r-epic', done: decisions7d >= 2 },
         { label: 'Boss Raid', rarity: 'r-legend', done: queue.filter(q => q.status === 'review').length === 0 }
       ];
+      if (rank >= 5) maybeUnlockAchievement('rank5','🛡️','Rank 5 Vanguard');
+      if (streak >= 7) maybeUnlockAchievement('streak7','🔥','7-Day Momentum');
+      if (dailyDungeon?.completed) maybeUnlockAchievement(`dungeon-${dailyDungeon.date}`,'⚔️','Daily Dungeon Clear');
+
+      const gallery = achievements.slice(-6).reverse().map(a => `<div class="rarity"><div style="font-size:1.2rem;">${a.icon}</div><div>${esc(a.title)}</div><div class="muted">${new Date(a.ts).toLocaleDateString()}</div></div>`).join('') || '<div class="muted">No achievements yet.</div>';
+
       el.innerHTML = `
         <div>
           <div class="xp-ring" style="--xp:${pct}%">
@@ -962,6 +1012,14 @@
           </div>
           <div class="rarity-grid" style="margin-top:.6rem;">
             ${quests.map(q => `<div class="rarity ${q.rarity}"><div>${q.done ? '✅' : '⚔️'} ${q.label}</div><div class="muted" style="margin-top:.2rem;">${q.done ? 'Cleared' : 'In progress'}</div></div>`).join('')}
+          </div>
+          <div class="sub-card" style="margin-top:.6rem;">
+            <div class="section-head"><strong>🗡️ Daily Dungeon</strong><div><button class="btn" onclick="completeDailyDungeon()">Clear</button> <button class="btn" onclick="rerollDailyDungeon()">Reroll</button></div></div>
+            <div style="margin-top:.35rem;">${dailyDungeon?.completed ? '✅' : '⚔️'} ${esc(dailyDungeon?.title || 'No dungeon')}</div>
+          </div>
+          <div class="sub-card" style="margin-top:.6rem;">
+            <div class="section-head"><strong>🏆 Achievement Gallery</strong><span class="pill">Last 6</span></div>
+            <div class="rarity-grid" style="margin-top:.5rem;">${gallery}</div>
           </div>
         </div>`;
     }
@@ -1397,6 +1455,22 @@
     }
 
     let toastTimer = null;
+    window.rerollDailyDungeon = function() {
+      dailyDungeon = null;
+      ensureDailyDungeon();
+      save(KEYS.dailyDungeon, dailyDungeon);
+      renderGamificationPanel();
+      showToast('🎲 Daily dungeon rerolled');
+    }
+
+    window.completeDailyDungeon = function() {
+      ensureDailyDungeon();
+      dailyDungeon.completed = true;
+      save(KEYS.dailyDungeon, dailyDungeon);
+      renderGamificationPanel();
+      showToast('⚔️ Daily dungeon cleared');
+    }
+
     function showToast(text) {
       const el = document.getElementById('toast');
       if (!el) return;
