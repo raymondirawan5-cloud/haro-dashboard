@@ -121,6 +121,9 @@
     .trend-bar { flex:1; min-width:12px; border-radius:8px 8px 4px 4px; background:linear-gradient(180deg, rgba(34,211,238,.95), rgba(37,99,235,.6)); box-shadow:0 0 10px rgba(34,211,238,.25); }
     .toast { position:fixed; right:18px; bottom:18px; z-index:120; padding:.65rem .8rem; border-radius:12px; border:1px solid rgba(34,211,238,.35); background:rgba(2,6,23,.92); color:#dbeafe; box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; transform:translateY(8px); pointer-events:none; transition:all .18s ease; }
     .toast.show { opacity:1; transform:translateY(0); }
+    .rankup-overlay { position:fixed; inset:0; z-index:130; display:none; align-items:center; justify-content:center; background:radial-gradient(circle at center, rgba(34,211,238,.18), rgba(2,6,23,.92)); backdrop-filter: blur(2px); }
+    .rankup-overlay.open { display:flex; }
+    .rankup-card { border:1px solid rgba(34,211,238,.5); border-radius:16px; padding:1rem 1.2rem; background:rgba(2,6,23,.86); box-shadow:0 0 40px rgba(34,211,238,.35); text-align:center; min-width:280px; }
     .founder-mode .advanced-only { display:none !important; }
     .flow-grid { display:grid; grid-template-columns:repeat(5,minmax(120px,1fr)); gap:.5rem; margin-top:.6rem; }
     .flow-step { border:1px solid var(--border); border-radius:10px; padding:.5rem; background:rgba(255,255,255,.02); }
@@ -319,6 +322,7 @@
     </div>
   </div>
   <div id="toast" class="toast"></div>
+  <div id="rankupOverlay" class="rankup-overlay"><div class="rankup-card"><div class="muted">LEVEL UP</div><div id="rankupText" class="ux-score" style="margin-top:.35rem;">Rank +1</div><div class="muted" style="margin-top:.3rem;">Keep stacking consistent clears.</div></div></div>
 
   <script>
     // -------- Storage keys --------
@@ -329,7 +333,8 @@
       brain: 'mc_brain',
       activity: 'mc_activity',
       dailyDungeon: 'mc_daily_dungeon',
-      achievements: 'mc_achievements'
+      achievements: 'mc_achievements',
+      rankState: 'mc_rank_state'
     };
 
     const SERVER_BASE = `${location.protocol}//${location.hostname}:8899`;
@@ -367,6 +372,19 @@
     };
 
     const RELEASES = [
+      {
+        version: 'v2.8.2-rankup-overlay-badge-tiers',
+        date: '2026-03-01',
+        theme: 'Gamification polish with cinematic rank-up and collectible tiers',
+        features: [
+          'Added animated rank-up overlay for visible progression moments',
+          'Added collectible badge tier system (Novice/Rare/Epic/Mythic Collector)',
+          'Expanded achievement system feedback with richer milestone signaling'
+        ],
+        links: [
+          { label: 'Open Dashboard', href: '#tab-dashboard' }
+        ]
+      },
       {
         version: 'v2.8.1-gamification-graphics-expansion',
         date: '2026-03-01',
@@ -652,6 +670,7 @@
     let founderMode = load('mc_founder_mode', false);
     let dailyDungeon = load(KEYS.dailyDungeon, null);
     let achievements = load(KEYS.achievements, []);
+    let rankState = load(KEYS.rankState, { lastRank: 1 });
 
     initUI();
     renderAll();
@@ -971,6 +990,15 @@
       showToast(`🏆 Achievement unlocked: ${title}`);
     }
 
+    function showRankUp(rank) {
+      const overlay = document.getElementById('rankupOverlay');
+      const txt = document.getElementById('rankupText');
+      if (!overlay || !txt) return;
+      txt.textContent = `Rank ${rank}`;
+      overlay.classList.add('open');
+      setTimeout(() => overlay.classList.remove('open'), 1800);
+    }
+
     function renderGamificationPanel() {
       const el = document.getElementById('gamificationPanel');
       if (!el) return;
@@ -980,6 +1008,11 @@
       const decisions7d = decisions.filter(d => new Date(d.date).getTime() >= weekStart).length;
       const xp = Math.max(0, completed * 25 + decisions7d * 40 + queue.filter(q => q.status === 'done').length * 15 + (dailyDungeon?.completed ? 120 : 0));
       const rank = Math.floor(xp / 300) + 1;
+      if (rank > (rankState.lastRank || 1)) {
+        showRankUp(rank);
+        rankState.lastRank = rank;
+        save(KEYS.rankState, rankState);
+      }
       const inRank = xp % 300;
       const pct = Math.min(100, Math.round((inRank / 300) * 100));
       const streak = Math.min(30, Math.max(1, Math.round(completed / 2)));
@@ -993,6 +1026,8 @@
       if (dailyDungeon?.completed) maybeUnlockAchievement(`dungeon-${dailyDungeon.date}`,'⚔️','Daily Dungeon Clear');
 
       const gallery = achievements.slice(-6).reverse().map(a => `<div class="rarity"><div style="font-size:1.2rem;">${a.icon}</div><div>${esc(a.title)}</div><div class="muted">${new Date(a.ts).toLocaleDateString()}</div></div>`).join('') || '<div class="muted">No achievements yet.</div>';
+      const unlocks = achievements.length;
+      const tier = unlocks >= 18 ? 'Mythic Collector' : unlocks >= 10 ? 'Epic Collector' : unlocks >= 4 ? 'Rare Collector' : 'Novice Collector';
 
       el.innerHTML = `
         <div>
@@ -1019,6 +1054,7 @@
           </div>
           <div class="sub-card" style="margin-top:.6rem;">
             <div class="section-head"><strong>🏆 Achievement Gallery</strong><span class="pill">Last 6</span></div>
+            <div class="muted" style="margin-top:.3rem;">Tier: <strong>${tier}</strong> · Unlocks: ${unlocks}</div>
             <div class="rarity-grid" style="margin-top:.5rem;">${gallery}</div>
           </div>
         </div>`;
